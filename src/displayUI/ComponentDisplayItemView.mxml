@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:BorderContainer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="410" height="484">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.events.ListEvent;
+			
+			import deltax.gui.base.ComponentDisplayItem;
+			import deltax.gui.base.ComponentDisplayStateInfo;
+			
+			import utils.ClassUtil;
+			
+			private var _info:ComponentDisplayItem;
+			private var displayItems:Vector.<ComponentDisplayItem>;
+			public function set info(value:ComponentDisplayItem):void{
+				this._info = value;
+				updateData();
+			}
+			
+			public function get info():ComponentDisplayItem{
+				return this._info;
+			}
+			public var type:int;
+			private function updateData():void{
+				rX.text = "null";
+				rY.text = "null";
+				rW.text = "null"
+				rH.text = "null";
+				componetDisplayStateInfoViews.removeAllElements();
+				if(info==null)return;
+				
+				if(info.rect){
+					rX.text = info.rect.x.toString();
+					rY.text = info.rect.y.toString();
+					rW.text = info.rect.width.toString();
+					rH.text = info.rect.height.toString();
+				}
+				
+				var yi:int = 0;
+				var yT:Number = 0;
+				if(disItemStateId.selectedItem){
+					var stateInfo:ComponentDisplayStateInfo = info.displayStateInfos[disItemStateId.selectedItem.value];
+					if(stateInfo){
+						var cdsInfoView:ComponentDisplayStateInfoView = new ComponentDisplayStateInfoView();
+						cdsInfoView.info = stateInfo;						
+						cdsInfoView.x = 0;
+						cdsInfoView.y = yT;
+						yT += cdsInfoView.height;
+						cdsInfoView.type = disItemStateId.selectedItem.value;//这里的类型不单纯是subCtrl类型，应该分类写,   2012.12.3,beuady
+						componetDisplayStateInfoViews.addElement(cdsInfoView);
+					}
+					
+					componetDisplayStateInfoViews.height = yT;
+					this.height = componetDisplayStateInfoViews.y + componetDisplayStateInfoViews.height;
+				}								
+			}
+			
+			private static var TEMP_RECT:Rectangle = new Rectangle();
+			private function changeHandler(event:Event):void{
+				if(info==null)return;
+				if(info.rect == null){
+					info.rect = TEMP_RECT;
+				}
+				TEMP_RECT.setTo(0,0,0,0);
+				if(info.rect.x != int(rX.text)){
+					info.rect.x = Number(rX.text);
+				}
+				if(info.rect.y != int(rY.text)){
+					info.rect.y = Number(rY.text);
+				}
+				
+				var change:Boolean = false;
+				if(info.rect.width != Number(rW.text)){
+					info.rect.width = Number(rW.text);
+				}
+				if(info.rect.height != Number(rH.text)){
+					info.rect.height = Number(rH.text);
+				}
+				
+				//PropertiesView.instance.setPropertySize(info.rect.width,info.rect.height);
+				DisplayItemManager.instance.setRect(PropertiesView.instance.curWindow,info);				
+			}
+			
+			public function setDisItemList(disItems:Vector.<ComponentDisplayItem>,typeClassName:String):void{
+				disItemId.dataProvider=null;
+				var styleClass:Class = getDefinitionByName(ClassUtil.SUB_PACKAGE+typeClassName) as Class;
+				var arrData:ArrayCollection = new ArrayCollection();				
+				var list:XMLList = ClassUtil.getConstXMLList(ClassUtil.SUB_PACKAGE+typeClassName);				
+				for(var i:int=0;i<list.length();i++){
+					var axml:XML = list[i];
+					var ob:Object = new Object();
+					var str:String = String(axml.@name);
+					if(str=="COUNT")continue;
+					ob.key = str;
+					ob.value = styleClass[str];
+					arrData.addItem(ob);
+				}				
+				disItemId.labelField = "key";
+				disItemId.dataProvider = arrData;
+				arrData.source.sortOn("key");
+				//resetData
+				disItemStateId.dataProvider = null;
+				this.displayItems = disItems;
+				itemTypeId.text = "type";
+				info = null;
+			}
+			
+			protected function setDisItemStateList(event:ListEvent):void
+			{
+				disItemStateId.dataProvider = null;
+				if(disItemId.dataProvider==null )return;
+				var resStateData:ArrayCollection = new ArrayCollection();
+				var index:int;
+				if(!disItemId.selectedItem) return; 
+				 index = disItemId.selectedItem.value;
+				var aItem:ComponentDisplayItem=displayItems[index-1];
+				for(var i:int=0,len:int=aItem.displayStateInfos.length;i<len;i++){
+					var stateInfo:ComponentDisplayStateInfo = aItem.displayStateInfos[i];
+					if(stateInfo){
+						var ob:Object = new Object();
+						ob.key = ClassUtil.getConstNameByValue(i,ClassUtil.SUB_PACKAGE+"SubCtrlStateType");
+						ob.value = i;
+						resStateData.addItem(ob);
+					}
+				}
+				itemTypeId.text = disItemId.selectedItem.key;
+				disItemStateId.labelField = "key";
+				disItemStateId.dataProvider = resStateData;		
+				info = aItem;
+			}
+			
+			protected function disItemStateId_clickHandler(event:ListEvent):void
+			{
+				if(disItemStateId.dataProvider==null)return;				
+				var index:int = disItemId.selectedItem.value;
+				var aItem:ComponentDisplayItem=displayItems[index-1];
+				info = aItem;
+			}
+			protected function disItemId_mouseMoveHandler(event:MouseEvent):void
+			{
+				if(disItemId.selectedItem){
+					event.currentTarget.toolTip = disItemId.selectedItem.key;
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Label x="2" y="251" height="18" text="rect"/>
+	<s:Label id="itemTypeId" x="93" y="211" width="260" color="#FB2626" fontSize="14" text="type"/>
+	<s:TextInput x="31" y="246" width="57" id="rX" change="changeHandler(event)"/>
+	<s:TextInput x="101" y="246" width="57" id="rY" change="changeHandler(event)"/>
+	<s:TextInput x="169" y="246" width="57" id="rW" change="changeHandler(event)"/>
+	<s:TextInput x="239" y="246" width="57" id="rH" change="changeHandler(event)"/>
+	<s:Label x="32" y="232" text="x"/>
+	<s:Label x="104" y="232" text="y"/>
+	<s:Label x="173" y="232" text="w"/>
+	<s:Label x="242" y="232" text="h"/>
+	<s:Group x="0" y="273" width="100%" height="209" id="componetDisplayStateInfoViews">
+	</s:Group>
+	<mx:HRule x="2" y="198" width="385" height="12" strokeColor="0xFF0000" strokeWidth="5"/>
+	<mx:List id="disItemId" x="0" y="34" width="180" height="160" itemClick="setDisItemStateList(event)" mouseMove="disItemId_mouseMoveHandler(event)"/>
+	<mx:List id="disItemStateId" x="186" y="34" width="170" height="160" itemClick="disItemStateId_clickHandler(event)"/>
+	<s:Label x="5" y="214" width="83" fontSize="12" text="DIspalyItem:"/>
+	<s:Label x="57" y="10" height="16" fontSize="12" text="部件列表"/>
+	<s:Label x="217" y="10" height="16" fontSize="12" text="部件状态列表"/>
+</s:BorderContainer>

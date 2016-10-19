@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="288"
+		 xmlns:ns1 = "*" creationComplete="group1_creationCompleteHandler(event)" xmlns:displayUI="displayUI.*">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.events.TextOperationEvent;
+			
+			import core.TextureFileManager;
+			
+			import deltax.graphic.manager.DeltaXTextureManager;
+			import deltax.gui.base.DisplayImageInfo;
+			import deltax.gui.base.ImageDrawFlag;
+			import deltax.gui.base.style.LockFlag;
+			
+			import events.UIDataEvent;
+			
+			import utils.CommonUtil;
+
+	
+			private var _info:DisplayImageInfo;
+			public var deletaCallBack:Function;
+			
+			public function set info(value:DisplayImageInfo):void{
+				_info = value;
+				updateData();
+			}
+			public function get info():DisplayImageInfo{
+				return _info;
+			}
+			
+			private function updateData():void{
+				if(info.texture){
+					info.textureIndex = TextureFileManager.getInstance().GetTextureId(info.texture.name);
+					this.textureIndexId.text = info.textureIndex.toString();					
+					this.textureUrlId.text = info.texture.name;
+					this.textureUrlId.toolTip = info.texture.name;
+				}else{
+					this.textureIndexId.text = "null";
+					this.textureUrlId.text = "null";				
+				}
+				
+				if(trX.text!=info.textureRect.x.toString() ||trY.text!=info.textureRect.y.toString()){					
+					textureUrlComboxId.selectPic(info);					
+				}	
+				this.trX.text = info.textureRect.x.toString();
+				this.trY.text = info.textureRect.y.toString();				
+				this.trR.text = info.textureRect.right.toString();
+				this.trB.text = info.textureRect.bottom.toString();
+				
+				this.wrX.text = info.wndRect.x.toString();
+				this.wrY.text = info.wndRect.y.toString();
+				this.wrR.text = info.wndRect.right.toString();
+				this.wrB.text = info.wndRect.bottom.toString();
+				this.colorId.text = CommonUtil.toBin(info.color);
+				
+				lcb.selected = Boolean(info.lockFlag & LockFlag.LEFT);
+				rcb.selected = Boolean(info.lockFlag & LockFlag.RIGHT);
+				tcb.selected = Boolean(info.lockFlag & LockFlag.TOP);
+				bcb.selected = Boolean(info.lockFlag & LockFlag.BOTTOM);
+				
+				dfID0.selected = Boolean(info.drawFlag & ImageDrawFlag.ZOOM_WHILE_SCALE);
+				dfID1.selected = Boolean(info.drawFlag & ImageDrawFlag.ADD_TEXTURE_COLOR);
+				dfID2.selected = Boolean(info.drawFlag & ImageDrawFlag.DISABLE_ALPHA_TEST);
+				dfID3.selected = Boolean(info.drawFlag & ImageDrawFlag.TILE_HORIZON);
+				dfID4.selected = Boolean(info.drawFlag & ImageDrawFlag.TILE_VERTICAL);
+			}
+			
+			
+			protected function textureUrlClickHandler(event:MouseEvent):void
+			{
+				// TODO Auto-generated method stub
+				if(info.texture==null || textureUrlId.text != info.texture.name){
+					info.textureIndex = TextureFileManager.getInstance().GetTextureId(textureUrlId.text);
+					info.texture = DeltaXTextureManager.instance.createTexture(textureUrlId.text);
+					this.textureIndexId.text = info.textureIndex.toString();
+					
+				}
+			}
+			
+			private function rcChangeHandler(event:Event):void{
+				info.textureRect.x = int(this.trX.text);
+				info.textureRect.y = int(this.trY.text);
+				info.textureRect.right = int(this.trR.text);
+				info.textureRect.bottom = int(this.trB.text);
+				info.wndRect.x = int(this.wrX.text);
+				info.wndRect.y = int(this.wrY.text);
+				info.wndRect.right = int(this.wrR.text);
+				info.wndRect.bottom = int(this.wrB.text);	
+				
+				info.color = CommonUtil.parseBin(colorId.text);
+				 
+				info.lockFlag = (lcb.selected?LockFlag.LEFT:0)|(rcb.selected?LockFlag.RIGHT:0)|(tcb.selected?LockFlag.TOP:0)|(bcb.selected?LockFlag.BOTTOM:0);
+				info.drawFlag = (dfID0.selected?ImageDrawFlag.ZOOM_WHILE_SCALE:0)|(dfID1.selected?ImageDrawFlag.ADD_TEXTURE_COLOR:0)|(dfID2.selected?ImageDrawFlag.DISABLE_ALPHA_TEST:0)|(dfID3.selected?ImageDrawFlag.TILE_HORIZON:0)|(dfID4.selected?ImageDrawFlag.TILE_VERTICAL:0);
+			}
+			
+			private function deleteHandler(event:Event):void{
+				deletaCallBack(this);
+				DependFileListView.instance.updateBigList();
+			}
+			
+			protected function textureUrlComboxId_closeHandler(event:Event):void
+			{
+				var parent:XML = textureUrlComboxId.firstId.selectedItem as XML;
+				if(!parent)return;
+				var vo:XML = textureUrlComboxId.secondId.selectedItem as XML;
+				textureUrlId.text =parent.@url;
+				textureUrlId.toolTip = textureUrlId.text;
+				this.trX.text = vo.@x+"";
+				this.trY.text = vo.@y+"";
+				this.trR.text = String(int(vo.@x)+int(vo.@width));
+				this.trB.text = String(int(vo.@y)+int(vo.@height));
+				
+				this.wrX.text = "0";
+				this.wrY.text = "0";
+				this.wrR.text = ""+(int(vo.@width)+int(this.wrX.text));
+				this.wrB.text = ""+(int(vo.@height)+int(this.wrY.text));
+				
+				textureUrlClickHandler(null);
+				rcChangeHandler(null);
+				DependFileListView.instance.updateBigList();
+			}
+			
+			protected function textureUrlId_changeHandler(event:TextOperationEvent):void
+			{
+				
+				textureUrlId.toolTip = textureUrlId.text;
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				DependFileListView.instance.addEventListener(DependFileListView.CHANGE_BIG_PIC_NAME,changeBigPic);
+			}
+			
+			//修改大图列表后刷新对应gui的显示
+			protected function changeBigPic(event:UIDataEvent):void
+			{		
+				if(textureUrlId.text==event.data.oldUrl){
+					textureUrlId.text = event.data.newUrl;
+				}
+//				var bigArrData:ArrayCollection =DependFileListView.instance.dataGridId.dataProvider as ArrayCollection; 
+//				for(var i:int=0;i<bigArrData.length;i++){
+//					var ob:Object = bigArrData.getItemAt(i);					
+//					
+//				}
+				rcChangeHandler(null);
+			}
+			
+			protected function lockFlagChangeHandler(event:MouseEvent):void
+			{
+				if(info==null) {
+					acb.selected = false;
+					return;
+				}
+				if(!acb.selected){
+					lcb.selected = false;
+					rcb.selected = false;
+					tcb.selected = false;
+					bcb.selected = false;
+					info.lockFlag=0;
+				}else{
+					lcb.selected = true;
+					rcb.selected = true;
+					tcb.selected = true;
+					bcb.selected = true;
+					info.lockFlag = 0xF;
+				}				
+			}
+			
+		]]>
+	</fx:Script>
+	<s:Label x="10" y="20" text="textureIndex"/>
+	<s:TextInput id="textureIndexId" x="84" y="15" editable="false" enabled="false" visible="false"/>
+	<s:Label x="13" y="138" text="textureRect"/>
+	<s:TextInput id="trX" x="87" y="132" width="47" change="rcChangeHandler(event)" enabled="true"/>
+	<s:TextInput id="trY" x="146" y="132" width="47" change="rcChangeHandler(event)" enabled="true"/>
+	<s:TextInput id="trR" x="205" y="132" width="47" change="rcChangeHandler(event)" enabled="true"/>
+	<s:TextInput id="trB" x="264" y="132" width="47" change="rcChangeHandler(event)" enabled="true"/>
+	<s:Label x="13" y="163" text="wndRectRect"/>
+	<s:TextInput id="wrX" x="87" y="157" width="47" change="rcChangeHandler(event)"/>
+	<s:TextInput id="wrY" x="146" y="157" width="47" change="rcChangeHandler(event)"/>
+	<s:TextInput id="wrR" x="205" y="157" width="47" change="rcChangeHandler(event)"/>
+	<s:TextInput id="wrB" x="264" y="157" width="47" change="rcChangeHandler(event)"/>
+	<s:Label x="89" y="118" text="x"/>
+	<s:Label x="146" y="118" text="y"/>
+	<s:Label x="205" y="118" text="right"/>
+	<s:Label x="264" y="118" text="bottom"/>
+	<s:Label x="13" y="193" text="color"/>
+	<s:TextInput id="colorId" x="87" y="185" change="rcChangeHandler(event)"/>	
+	<s:Label x="13" y="241" text="drawFlag"/>
+	<s:Label x="12" y="47" text="textureUrl"/>
+	<s:TextInput id="textureUrlId" x="83" y="43" width="195"
+				 change="textureUrlId_changeHandler(event)" editable="false"/>
+	<displayUI:PicCombobox id="textureUrlComboxId" x="17" y="71" width="237" SelectedPicURL="textureUrlComboxId_closeHandler(event)"/>
+	<mx:HRule x="8" y="4" width="246" height="8" />
+	<s:Button x="280" y="44" width="40" label="刷新" click="textureUrlClickHandler(event)" fontSize="10" toolTip="重新加载贴图"/>
+	<s:Button x="290" y="3" width="30" label="X" click="deleteHandler(event)"/>
+	<s:HGroup x="13" y="217" width="298">		
+		<s:Label x="10" y="197" height="18" text="lockFlag" verticalAlign="middle"/>
+		<s:CheckBox id="lcb" x="85" y="196" label="left" click="rcChangeHandler(event)"/>
+		<s:CheckBox id="rcb" x="143" y="196" label="right" click="rcChangeHandler(event)"/>
+		<s:CheckBox id="bcb" x="263" y="197" label="bottom" click="rcChangeHandler(event)"/>
+		<s:CheckBox id="tcb" x="207" y="197" label="top" click="rcChangeHandler(event)"/>
+		<s:CheckBox id="acb" x="177" y="268" width="35" label="all"
+					click="lockFlagChangeHandler(event)"/>
+	</s:HGroup>
+	<s:CheckBox id="dfID0" x="87" y="240" label="zoom_while_scale" click="rcChangeHandler(event)"/>
+	<s:CheckBox id="dfID1" x="210" y="240" label="add_texture_color" click="rcChangeHandler(event)"/>
+	<s:CheckBox id="dfID2" x="87" y="258" label="disable_alpha_test" click="rcChangeHandler(event)"/>
+	<s:CheckBox id="dfID3" x="87" y="275" label="tile_horizon" click="rcChangeHandler(event)"/>
+	<s:CheckBox id="dfID4" x="212" y="275" label="tile_vertical" click="rcChangeHandler(event)"/>
+</s:Group>

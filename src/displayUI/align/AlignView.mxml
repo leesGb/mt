@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   width="212" height="228" textAlign="center" title="对齐面板">
+	<fx:Declarations>
+		<s:RadioButtonGroup id="radiogroupType"/>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Button id="alignLeftBtn" x="10" y="36" width="26" height="20" label="" toolTip="左对齐.对齐于最左边的组件"/>
+	<s:Button id="alignXCenterBtn" x="38" y="36" width="26" height="20" label="" toolTip="水平居中对齐"/>
+	<s:Button id="alignXRightBtn" x="67" y="36" width="26" height="20" label="" toolTip="右对齐"/>
+	<s:Button id="alignTopBtn" x="115" y="36" width="26" height="20" label="" toolTip="顶对齐"/>
+	<s:Button id="alignYCenterBtn" x="143" y="36" width="26" height="20" label="" toolTip="垂直居中对齐"/>
+	<s:Button id="alignBottomBtn" x="172" y="36" width="26" height="20" label="" toolTip="底对齐"/>
+	<!-- 
+	<s:Button id="disTopBtn" x="0" y="-79" width="26" height="20" label="" toolTip="顶部分布"/>
+	<s:Button id="disYCenterBtn" x="28" y="-79" width="26" height="20" label="" toolTip="垂直居中分布"/>
+	<s:Button id="disBottomBtn" x="57" y="-79" width="26" height="20" label="" toolTip="底部分布"/>
+	<s:Button id="disLeftBtn" x="105" y="-79" width="26" height="20" label="" toolTip="左侧分布"/>
+	<s:Button id="disXCenterBtn" x="133" y="-79" width="26" height="20" label="" toolTip="水平居中分布"/>
+	<s:Button id="disRightBtn" x="162" y="-79" width="26" height="20" label="" toolTip="右侧分布"/>
+	 -->
+	<s:Button id="sameWidthBtn" x="10" y="84" width="26" height="20" label="" toolTip="匹配宽度.选中的组件统一最大的宽值"/>
+	<s:Button id="sameHeightBtn" x="38" y="84" width="26" height="20" label="" toolTip="匹配高.选中的组件统一最大的高"/>
+	<s:Button id="sameWHBtn" x="67" y="84" width="26" height="20" label="" toolTip="匹配宽高.选中的组件统一最大的宽、高"/>
+	<s:Button id="gapYCenterBtn" x="10" y="132" width="26" height="20" label="" toolTip="垂直平均间隔"/>
+	<s:Button id="gapXCenterBtn" x="38" y="132" width="26" height="20" label="" toolTip="水平平均间隔"/>
+	<s:Button id="gapYBtn" x="116" y="132" width="26" height="20" label="y" color="#000000" toolTip="y坐标间隔.最上面组件为参照"/>
+	<s:Button id="gapXBtn" x="144" y="132" width="26" height="20" label="x" color="#000000" toolTip="x坐标间隔.最左边组件为参照"/>
+	<s:Label x="10" y="67" text="匹配大小："/>
+	<s:Label x="13" y="115" text="间隔："/>
+	<s:Label x="10" y="15" text="对齐："/>
+	<!-- <s:Label x="0" y="-96" text="分布："/> -->
+	<s:NumericStepper id="numStep" x="117" y="154" maximum="500" minimum="-500" stepSize="1"/>
+</s:TitleWindow>

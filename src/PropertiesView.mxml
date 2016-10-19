@@ -1,0 +1,704 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:ns1="displayUI.*"
+		 width="366" height="720"
+		 creationComplete="group1_creationCompleteHandler(event)">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<fx:XML id="styleXML">	
+			<root>
+			<item styleClass="WindowStyle" type="CommonWndSubCtrlType" resClass="CGWnd"/>
+			<item styleClass="ButtonStyle" type="CommonWndSubCtrlType" resClass="CGButton"/>
+			<item styleClass="CheckButtonStyle" type="CommonWndSubCtrlType" resClass="CGCheckButton"/>
+			<item styleClass="ComboBoxStyle" type="ComboBoxSubCtrlType" resClass="CGComboBox"/>
+			<item styleClass="EditBoxStyle" type="EditSubCtrlType" resClass="CGEdit"/>
+			<item styleClass="ListStyle" type="ListSubCtrlType" resClass="CGListCtrl"/>
+			<item styleClass="ListStyle" type="ListSubCtrlType" resClass="ItemTable"/>
+			<item styleClass="WindowStyle" type="CommonWndSubCtrlType" resClass="CGMsgBox"/>	
+			<item styleClass="ProgressStyle" type="CommonWndSubCtrlType" resClass="CGProgress"/>
+			<item styleClass="RichWndStyle" type="EditSubCtrlType" resClass="CGRichWnd"/>
+			<item styleClass="ScrollStyle" type="ScrollBarSubCtrlType" resClass="CGScrollBar"/>
+			<item styleClass="WindowStyle" type="TreeSubCtrlType" resClass="CGTreeCtrl"/>
+				</root>
+		</fx:XML>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.hmh.utils.FileHelper;
+			
+			import core.CGUIEditorApp;
+			
+			import deltax.common.localize.LanguageMgr;
+			import deltax.common.resource.Enviroment;
+			import deltax.gui.base.ComponentDisplayItem;
+			import deltax.gui.base.ComponentDisplayStateInfo;
+			import deltax.gui.base.DisplayImageInfo;
+			import deltax.gui.base.WindowClassName;
+			import deltax.gui.base.WindowCreateParam;
+			import deltax.gui.base.WndSoundFxType;
+			import deltax.gui.base.style.LockFlag;
+			import deltax.gui.base.style.WindowStyle;
+			import deltax.gui.component.DeltaXComboBox;
+			import deltax.gui.component.DeltaXWindow;
+			import deltax.gui.component.subctrl.ComboBoxSubCtrlType;
+			import deltax.gui.component.subctrl.CommonWndSubCtrlType;
+			import deltax.gui.component.subctrl.EditSubCtrlType;
+			import deltax.gui.component.subctrl.ListSubCtrlType;
+			import deltax.gui.component.subctrl.RichWndSubCtrlType;
+			import deltax.gui.component.subctrl.ScrollBarSubCtrlType;
+			import deltax.gui.component.subctrl.SubCtrlStateType;
+			import deltax.gui.component.subctrl.TreeSubCtrlType;
+			import deltax.gui.manager.WindowClassManager;
+			
+			import displayUI.ComponentDisplayItemView;
+			import displayUI.DisplayItemManager;
+			
+			import flash.utils.getDefinitionByName;
+			import flash.utils.getQualifiedClassName;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			
+			import utils.ClassUtil;
+			public var curWindow:DeltaXWindow;
+			private static var _instance:PropertiesView;
+			public function setWindow(w:DeltaXWindow):void{
+				if(curWindow != w){
+					curWindow = w;
+					updateParamView();
+					updateParam();
+				}
+			}
+			
+			public function updateParam():void{
+				parentId.visible = true;
+				parentCBId.visible = false;	
+				changeParentBtn.label = "move";	
+				if(curWindow == null)return;
+				
+				classNameId.text = curWindow.properties.className;
+				this.bcb0.selected = curWindow.visible;
+				this.idId.text = curWindow.name;
+				this.titleId.text = curWindow.getText();
+				
+				/* this.style_0.selected = curWindow.style & WindowStyle.REQUIRE_CHILD_NOTIFY;
+				this.style_1.selected = curWindow.style & WindowStyle.CLIP_BY_PARENT;
+				this.style_2.selected = curWindow.style & WindowStyle.NO_MOUSEWHEEL;
+				this.style_3.selected = curWindow.style & WindowStyle.TOP_MOST;
+				this.style_4.selected = curWindow.style & WindowStyle.CHILD; */
+				
+				var styleNum:uint = curWindow.style;
+				for each(var cbox:CheckBox in styleCheckBoxList){
+					cbox.selected = Boolean(styleNum&uint(cbox.name));
+				}
+				for each(var ccbox:CheckBox in defualtStyleCheckBoxList){
+					ccbox.selected = Boolean(styleNum&uint(ccbox.name));
+				}
+				
+				this.xId.textDisplay.text = curWindow.x.toString();
+				this.yId.textDisplay.text = curWindow.y.toString();
+				this.wId.textDisplay.text = curWindow.width.toString();
+				this.hId.text = curWindow.height.toString();
+				this.xBorderId.textDisplay.text = curWindow.xBorder.toString();
+				this.yBorderId.textDisplay.text = curWindow.yBorder.toString();
+				this.fontNameId.text = curWindow.font;
+				this.fontSizeId.text = curWindow.fontSize.toString();
+				this.textHorzDistanceId.text = curWindow.textHorzDistance.toString();
+				this.textVertDistanceId.text = curWindow.textVertDistance.toString();
+				this.userInfoId.text = curWindow.properties.userInfo;
+				this.fadeDuration.text = curWindow.fadeDuration.toString();
+				this.groupIdId.text = curWindow.properties.groupID.toString();
+				this.tooltipId.text = curWindow.properties.tooltip;
+				
+				if(curWindow.properties.soundFxs){
+					this.openMusicId.text = curWindow.properties.soundFxs[WndSoundFxType.OPEN];
+					this.closeMusicId.text = curWindow.properties.soundFxs[WndSoundFxType.CLOSE];
+					this.clickMusicId.text = curWindow.properties.soundFxs[WndSoundFxType.CLICK];
+				}else{
+					this.openMusicId.text = "";
+					this.closeMusicId.text = "";
+					this.clickMusicId.text = "";
+				}
+				
+				this.lcb.selected = curWindow.properties.lockFlag & LockFlag.LEFT;
+				this.rcb.selected = curWindow.properties.lockFlag & LockFlag.RIGHT;
+				this.tcb.selected = curWindow.properties.lockFlag & LockFlag.TOP;
+				this.bcb.selected = curWindow.properties.lockFlag & LockFlag.BOTTOM;
+				
+				if(curWindow.parent){
+					this.parentId.text = curWindow.parent.name;
+				}else {
+					this.parentId.text = "null";
+				}
+				
+				//componetDisplayItemViews.removeAllElements();
+				var yT:int=0;
+				//============================
+				//2012.12.3,beuady   这段代码在切换组件的时候残留组件状态视图
+//				for(var i:int = 0,len:int = curWindow.properties.displayItems.length;i<1;i++){
+//					var cdiView:ComponentDisplayItemView = new ComponentDisplayItemView();
+//					cdiView.info = curWindow.properties.displayItems[i];
+//					cdiView.type = i;
+//					cdiView.y =yT;
+//					yT+=cdiView.height;
+//					componetDisplayItemViews.addElement(cdiView);
+//				}
+				
+				//============================
+				var clsName:String =curWindow.properties.className;			
+				var typeClassName:String = String(styleXML.item.(@resClass==clsName).@type);
+				if(typeClassName!=""){
+					componetDisplayItemViews.setDisItemList(curWindow.properties.displayItems,typeClassName);
+				}
+			}
+			
+			public function setPropertySize(width:Number,height:Number,lockFlag:Boolean=false):void{
+				if(curWindow){
+//					curWindow.properties.width = width;
+//					curWindow.properties.height = height;
+//					curWindow.width = width;
+//					curWindow.height = height;
+					this.wId.text = ""+width;
+					this.hId.text = ""+height;					
+					var changed:Boolean = false; 
+					var tmp:Point = new Point(curWindow.width,curWindow.height);					
+					if(curWindow.width!=int(wId.text)){
+						curWindow.properties.width = int(wId.text);
+						curWindow.width = curWindow.properties.width;
+						changed = true;
+					}
+					if(curWindow.height != int(hId.text)){
+						curWindow.properties.height = int(hId.text);
+						curWindow.height = curWindow.properties.height;
+						changed = true;
+					}
+					if(changed && lockFlag){
+						setWindowSize(curWindow,curWindow.width-tmp.x,curWindow.height-tmp.y);
+						//curWindow.setSize(curWindow.width,curWindow.height);
+//						if(curWindow.properties.displayItems){
+//							var dItem:ComponentDisplayItem = curWindow.properties.displayItems[CommonWndSubCtrlType.BACKGROUND-1];
+//							if(dItem){
+//								for each(var dStateItem:ComponentDisplayStateInfo in dItem.displayStateInfos){
+//									if(!dStateItem)continue;
+//									dStateItem.imageList.scaleAll(curWindow.width-tmp.x,curWindow.height-tmp.y);								
+//								}														
+//								dStateItem = dItem.displayStateInfos[SubCtrlStateType.ENABLE];
+//								for each(var diss:DisplayImageInfo in dStateItem.imageList.imageInfos){
+//									trace(diss.wndRect);
+//								}
+//							}
+//						}						
+					}
+				}
+			}
+			
+			public function setWindowSize(window:DeltaXWindow,delWidth:int,delHeight:int):void{
+				if(window.properties.displayItems){
+					var dItem:ComponentDisplayItem = window.properties.displayItems[CommonWndSubCtrlType.BACKGROUND-1];
+					if(dItem){
+						for each(var dStateItem:ComponentDisplayStateInfo in dItem.displayStateInfos){
+							if(!dStateItem)continue;
+							dStateItem.imageList.scaleAll(delWidth,delHeight);														
+						}																				
+					}
+					
+					DisplayItemManager.instance.setToRect(window);											
+				}
+			}
+			
+			public function setPropertyPos(x:int,y:int):void{
+				if(curWindow){
+					curWindow.properties.x = x;
+					curWindow.properties.y = y;
+					curWindow.x = x;
+					curWindow.y = y;
+					this.xId.textDisplay.text = ""+x;
+					this.yId.textDisplay.text = ""+y;
+				}
+			}
+			
+			private function onChangeHandler(event:Event):void {
+				if (curWindow == null) return;
+				
+				curWindow.visible = bcb0.selected;
+				
+				if(curWindow.name != idId.text){
+					curWindow.name = idId.text;
+					CGUIEditorApp.instance.updateLayoutTree();
+				}
+				if(curWindow.getText()!=titleId.text){
+					curWindow.setText(titleId.text);
+				}
+				if(curWindow.x!=int(xId.textDisplay.text)){
+					curWindow.properties.x = int(xId.textDisplay.text);
+					curWindow.x = curWindow.properties.x;
+				}
+				if(curWindow.y != int(yId.textDisplay.text)){
+					curWindow.properties.y = int(yId.textDisplay.text);
+					curWindow.y = curWindow.properties.y;
+				}
+				
+				var changed:Boolean = false; 
+				var tmp:Point = new Point(curWindow.width,curWindow.height);					
+				if(curWindow.width!=int(wId.text)){
+					curWindow.properties.width = int(wId.text);
+					curWindow.width = curWindow.properties.width;
+					changed = true;
+				}
+				if(curWindow.height != int(hId.text)){
+					curWindow.properties.height = int(hId.text);
+					curWindow.height = curWindow.properties.height;
+					changed = true;
+				}
+				
+				if(changed){
+					setWindowSize(curWindow,curWindow.width-tmp.x,curWindow.height-tmp.y);
+//					if(curWindow.properties.displayItems){
+//						var dItem:ComponentDisplayItem = curWindow.properties.displayItems[CommonWndSubCtrlType.BACKGROUND-1];
+//						if(dItem){
+//							for each(var dStateItem:ComponentDisplayStateInfo in dItem.displayStateInfos){
+//								if(!dStateItem)continue;
+//								dStateItem.imageList.scaleAll(curWindow.width-tmp.x,curWindow.height-tmp.y);								
+//							}														
+//							dStateItem = dItem.displayStateInfos[SubCtrlStateType.ENABLE];
+//							for each(var diss:DisplayImageInfo in dStateItem.imageList.imageInfos){
+//								trace(diss.wndRect);
+//							}
+//						}
+//					}					
+				}
+				if(changed && curWindow is DeltaXComboBox){
+					(curWindow as DeltaXComboBox).adjustWH(curWindow.width);
+				}
+				
+				
+				if(curWindow.font != fontNameId.text){
+					curWindow.font = fontNameId.text;
+				}
+				if(curWindow.fontSize != uint(fontSizeId.text)){
+					curWindow.fontSize = uint(fontSizeId.text);
+				}
+				if(curWindow.properties.xBorder != int(xBorderId.textDisplay.text)){
+					curWindow.properties.xBorder = int(xBorderId.textDisplay.text);
+				}
+				if(curWindow.properties.yBorder != int(yBorderId.textDisplay.text)){
+					curWindow.properties.yBorder = int(yBorderId.textDisplay.text);
+				}
+				if(curWindow.properties.textHorzDistance != uint(textHorzDistanceId.text)){
+					curWindow.properties.textHorzDistance = uint(textHorzDistanceId.text);
+				}
+				if(curWindow.properties.textVertDistance != uint(textVertDistanceId.text)){
+					curWindow.properties.textVertDistance = uint(textVertDistanceId.text);
+				}
+				if(curWindow.tooltipsText != tooltipId.text){
+					curWindow.setToolTipText(tooltipId.text);
+					curWindow.properties.tooltip = tooltipId.text;
+				}
+				if(curWindow.properties.groupID != int(groupIdId.text)){
+					curWindow.properties.groupID = int(groupIdId.text);
+				}
+				
+				if(curWindow.properties.userInfo != userInfoId.text){
+					curWindow.properties.userInfo = userInfoId.text;
+				}
+				
+				if(curWindow.properties.fadeDuration != int(fadeDuration.text)){
+					curWindow.properties.fadeDuration = int(fadeDuration.text);
+					curWindow.fadeDuration =curWindow.properties.fadeDuration; 
+				}
+				
+				curWindow.properties.lockFlag = (lcb.selected?LockFlag.LEFT:0)|(rcb.selected?LockFlag.RIGHT:0)|(tcb.selected?LockFlag.TOP:0)|(bcb.selected?LockFlag.BOTTOM:0);								
+				
+			}
+			
+			private function changeParentBtnHandler(event:Event):void{
+				if(changeParentBtn.label == "move"){
+					changeParentBtn.label = "ok";					
+					parentId.visible = false;
+					parentCBId.visible = true;
+					parentCBId.dataProvider = new ArrayCollection(CGUIEditorApp.instance.allwindows);
+					if(parentCBId.dataProvider.length>0){
+						parentCBId.selectedIndex = 1;
+					}
+				}else if(changeParentBtn.label=="ok"){
+					changeParentBtn.label = "move";
+					parentId.visible = true;
+					parentCBId.visible = false;	
+					
+					if(curWindow){
+						if(parentCBId.selectedItem && parentCBId.selectedItem != curWindow){
+							(parentCBId.selectedItem as DeltaXWindow).addChild(curWindow);
+							parentId.text = curWindow.parent.name;
+						
+							CGUIEditorApp.instance.updateLayoutTree();
+						}
+					}
+				}
+			}
+			
+			public function deleteTheWindowHandler(event:MouseEvent):void{
+				curWindow.remove();
+				CGUIEditorApp.instance.updateLayoutTree();
+			}						
+			
+			private var styleCheckBoxList:Array=[];
+			private var defualtStyleCheckBoxList:Array=[];
+			private function updateParamView():void
+			{
+				var clsName:String =curWindow.properties.className;				
+				var styleClassName:String = String(styleXML.item.(@resClass==clsName).@styleClass);
+				if(styleClassName=="")return;
+				var styleClass:Class = getDefinitionByName(ClassUtil.STYLE_PACKAGE+styleClassName) as Class;
+				var len:int = styleGroup.numElements;
+				
+				if(styleClassName=="WindowStyle"){
+					styleDefaultGroupScroller.visible = false;
+				}else{
+					styleDefaultGroupScroller.visible = true;
+				}
+				
+				while(len>0){
+					var ob:CheckBox = styleGroup.getElementAt(len-1) as CheckBox;					
+					ob.visible = false;
+					len--;
+				}
+				
+				len = styleGroup.numElements;
+				var classConstXML:XMLList = ClassUtil.getConstXMLList(ClassUtil.STYLE_PACKAGE+styleClassName);
+				var needNum:int = classConstXML.length();
+				while(len<needNum){
+					var box:CheckBox = new CheckBox();					
+					styleGroup.addElement(box);
+					styleCheckBoxList.push(box);
+					len++;
+				}
+							
+				len = styleGroup.numElements;
+				var i:int=0;
+				for each(var xl:XML in classConstXML){
+					var ob:CheckBox = styleGroup.getElementAt(i) as CheckBox;
+					ob.visible = true;						
+					ob.label = xl.@name;
+					ob.toolTip = ob.label;
+					ob.name = ""+styleClass[String(xl.@name)];
+					ob.addEventListener(Event.CHANGE,changeStyleHandler);
+					i++;
+				}
+								
+			}
+			
+			public function setLocalPos():void{
+				if(curWindow){
+					curWindow.properties.x = curWindow.x;
+					curWindow.properties.y = curWindow.y;
+					xId.textDisplay.text = curWindow.x+"";
+					yId.textDisplay.text = curWindow.y+"";
+				}
+			}
+			
+			protected function changeStyleHandler(event:Event):void
+			{
+				if(!curWindow)return;
+//				var _style:uint = 0;
+//				_style |= this.style_0.selected?WindowStyle.REQUIRE_CHILD_NOTIFY:0;
+//				_style |= this.style_1.selected?WindowStyle.CLIP_BY_PARENT:0;
+//				_style |= this.style_2.selected?WindowStyle.NO_MOUSEWHEEL:0;
+//				_style |= this.style_3.selected?WindowStyle.TOP_MOST:0;
+//				_style |= this.style_4.selected?WindowStyle.CHILD:0;				
+				var pos:uint = uint(event.currentTarget.name);
+				var tmp:uint = curWindow.style;				
+				tmp = tmp & (~pos);
+				curWindow.style = event.currentTarget.selected?uint(event.currentTarget.name)|tmp:tmp;
+				//
+				var p:WindowCreateParam = curWindow.properties;
+				if((curWindow.style & WindowStyle.MOUSE_CHECK_ON_PIXEL)!=0)
+				{
+					if(p)
+					{
+						var info:ComponentDisplayStateInfo = p.getStateImageList(CommonWndSubCtrlType.BACKGROUND, SubCtrlStateType.ENABLE);
+						if(info&&info.imageList)
+						{
+							if(info.imageList.imageCount==1)
+							{
+//								var byte:ByteArray = p.pixelArea;
+								if(p.pixelArea == null)
+								{
+									p.pixelArea = new ByteArray();
+									p.pixelArea.endian = Endian.LITTLE_ENDIAN;
+								}
+								var displayItem:DisplayImageInfo = info.imageList.getImage(0);
+								displayItem.createPixelArea(p.pixelArea);
+//								p.pixelArea = byte;
+//								if(byte)
+//								{
+//									byte.position = 0;
+//									var str:String = "";
+//									var ii:uint;
+//									while(byte.bytesAvailable)
+//									{
+//										
+//										if(ii>0&&(ii%displayItem.textureRect.width==0))
+//										{
+//											str+="\n"+byte.readUnsignedByte();
+//										}else
+//										{
+//											str+=byte.readUnsignedByte();
+//										}
+//										ii++;
+//									}
+//									trace("ooooooooooooooooooo"+"\n"+str);
+//								}
+							}
+						}
+					}
+				}else
+				{
+					if(p)
+					{
+						p.pixelArea = null;
+					}
+				}
+				//trace(curWindow.style.toString(2));
+			}
+			
+			private var fileType:int = -1;
+			protected function musicBtn_clickHandler(event:MouseEvent):void
+			{
+				if(curWindow==null)return;
+				var file:File = new File(Enviroment.ResourceRootPath+"sound/");
+				fileType = int(event.currentTarget.name.substr(event.currentTarget.name.length-1));
+				file.addEventListener(Event.SELECT,__importCompleteHandler);
+				file.addEventListener(IOErrorEvent.IO_ERROR,ioerror);
+				file.browseForOpen("选择音乐文件",[new FileFilter("mp3","*.mp3")]);
+			}
+			private function __importCompleteHandler(event:Event):void{
+				var file:File = event.currentTarget as File;
+				var path:String = FileHelper.getResComparPath(file.nativePath);
+				var fileRef:File =new File(Enviroment.ResourceRootPath);
+				//path = file.getRelativePath(fileRef,true);				
+				if(path==null){
+					Alert.show("请在 "+Enviroment.ResourceRootPath+" 目录下选择文件!");
+					return;
+				}				
+				if(curWindow.properties.soundFxs==null){
+					curWindow.properties.soundFxs = new Vector.<String>(WndSoundFxType.COUNT,true);
+				}
+				if(fileType==1){
+					closeMusicId.text = path;
+					closeMusicId.toolTip = path;
+					if(curWindow){
+						curWindow.properties.soundFxs[WndSoundFxType.CLOSE] = path;
+					}
+				}else if(fileType==2){
+					openMusicId.text = path;
+					openMusicId.toolTip = path;
+					if(curWindow){
+						curWindow.properties.soundFxs[WndSoundFxType.OPEN] = path;
+					}
+				}else{
+					clickMusicId.text = path;
+					clickMusicId.toolTip = path;
+					if(curWindow){
+						curWindow.properties.soundFxs[WndSoundFxType.CLICK] = path;
+					}
+				}
+			}
+			
+			protected function ioerror(event:IOErrorEvent):void
+			{
+				trace(event.text);				
+			}
+			
+			protected function LockFlagChangeHandler(event:MouseEvent):void
+			{			
+				if(curWindow==null){
+					acb.selected = false;
+					return;
+				}
+				if(!acb.selected){
+					lcb.selected = false;
+					rcb.selected = false;
+					tcb.selected = false;
+					bcb.selected = false;
+					curWindow.properties.lockFlag = 0;
+				}else{
+					lcb.selected = true;
+					rcb.selected = true;
+					tcb.selected = true;
+					bcb.selected = true;
+					curWindow.properties.lockFlag = 0xF;
+				}
+			}
+
+			public static function get instance():PropertiesView
+			{
+				return _instance;
+			}
+
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				_instance = this;
+				initDefaultStyleList();
+			}
+			/*
+			protected function transferHandler(event:MouseEvent):void
+			{
+				if(!curWindow)return;
+				var id:String;
+				switch(event.currentTarget){
+					case transferBtn1://title
+						id=LanguageMgr.addTranslation(titleId.text);
+						//curWindow.setText(LanguageMgr.setID(id));
+						break;
+					case transferBtn2://tooltip
+						id=LanguageMgr.addTranslation(tooltipId.text);
+						//curWindow.setToolTipText(LanguageMgr.setID(id));
+						break;
+					case transferBtn3://userInfo
+						id=LanguageMgr.addTranslation(userInfoId.text);
+						//curWindow.properties.userInfo = LanguageMgr.setID(id);
+						break;
+				}							
+			}*/
+			
+			protected function nummertic_mouseOutHandler(event:MouseEvent):void
+			{			
+				if(stage){
+					stage.focus = this;
+				}
+			}
+			
+			private function initDefaultStyleList():void
+			{
+				if(styleDefaultGroup.numElements>1)return;
+				var styleClassName = "WindowStyle";
+				var styleClass:Class = getDefinitionByName(ClassUtil.STYLE_PACKAGE+styleClassName) as Class;
+				var len:int = styleDefaultGroup.numElements;											
+				var classConstXML:XMLList = ClassUtil.getConstXMLList(ClassUtil.STYLE_PACKAGE+styleClassName);
+				var needNum:int = classConstXML.length();
+				var i:int=0;
+				for each(var xl:XML in classConstXML){
+					var ob:CheckBox = new CheckBox();					
+					styleDefaultGroup.addElement(ob);
+					//var ob:CheckBox = styleDefaultGroup.getElementAt(i) as CheckBox;
+					ob.visible = true;						
+					ob.label = xl.@name;
+					ob.toolTip = ob.label;
+					ob.name = ""+styleClass[String(xl.@name)];
+					ob.addEventListener(Event.CHANGE,changeStyleHandler);
+					defualtStyleCheckBoxList.push(ob);
+					i++;
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Scroller x="1" y="2" width="365" height="100%">
+		<s:VGroup width="100%" height="100%">
+			<s:BorderContainer width="350" height="750">
+				<s:TextInput id="titleId" x="49" y="51" width="171" change="onChangeHandler(event)"/>
+				<s:Label x="9" y="57" text="title"/>
+				<!--
+				<s:CheckBox id="style_1" x="51" y="100" label="CLIP_BY_PARENT"  change="onChangeHandler(event)"/>
+				<s:CheckBox id="style_2" x="169" y="100" label="NO_MOUSEWHEEL"  change="onChangeHandler(event)"/>
+				<s:CheckBox id="style_3" x="221" y="84" label="TOP_MOST"  change="onChangeHandler(event)"/>
+				<s:CheckBox id="style_4" x="299" y="100" label="CHILD"  change="onChangeHandler(event)"/>
+				-->
+				<s:Label x="16" y="113" text="x"/>
+				<s:Label x="188" y="115" text="y"/>
+				<s:NumericStepper id="xId" x="40" y="108" change="onChangeHandler(event)" keyUp="onChangeHandler(event)" stepSize="1" maximum="10000" minimum="-10000" mouseOut="nummertic_mouseOutHandler(event)"/>
+				<s:NumericStepper id="yId" x="217" y="107" width="65" change="onChangeHandler(event)" keyUp="onChangeHandler(event)" stepSize="1" maximum="10000" minimum="-10000" mouseOut="nummertic_mouseOutHandler(event)"/>
+				<s:Label x="8" y="137" text="width"/>
+				<s:Label x="175" y="135" text="height"/>
+				<s:Label x="3" y="192" width="49" text="xBorder"/>
+				<s:Label x="124" y="192" text="yBorder"/>
+				<s:Label x="14" y="217" text="字体"/>
+				<s:Label x="190" y="219" text="字体大小"/>
+				<s:Label x="2" y="247" text="textHorzDistance"/>
+				<s:Label x="163" y="246" text="textVertDistance"/>				
+				<s:Label x="5" y="299" text="tooltip"/>
+				<s:Label x="3" y="327" text="userClassName"/>
+				<s:Label x="4" y="353" text="userInfo"/>
+				<s:TextInput id="wId" x="40" y="132" change="onChangeHandler(event)"/>
+				<s:TextInput id="hId" x="217" y="132" width="101" change="onChangeHandler(event)"/>
+				<s:NumericStepper id="xBorderId" x="52" y="188" width="44" change="onChangeHandler(event)" keyUp="onChangeHandler(event)"  stepSize="1" maximum="10000" minimum="-10000" toolTip="x偏移坐标，具体是坐标偏移还是文本看具体组件"/>
+				<s:NumericStepper id="yBorderId" x="173" y="188" width="67" stepSize="1"  maximum="10000" minimum="-10000"
+							 change="onChangeHandler(event)" keyUp="onChangeHandler(event)" toolTip="y偏移坐标，具体是坐标偏移还是文本看具体组件"/>
+				<s:TextInput id="fontNameId" x="51" y="214" width="84"
+							 change="onChangeHandler(event)"/>
+				<s:TextInput id="fontSizeId" x="243" y="215" width="42"
+							 change="onChangeHandler(event)"/>
+				<s:TextInput id="textHorzDistanceId" x="98" y="241" width="49"
+							 change="onChangeHandler(event)" toolTip="文字水平间距"/>
+				<s:TextInput id="textVertDistanceId" x="258" y="241" width="48"
+							 change="onChangeHandler(event)" toolTip="文字垂直间距"/>
+				<s:TextInput id="tooltipId" x="53" y="292" change="onChangeHandler(event)"/>
+				<s:TextInput id="userClassNameId" x="101" y="319" change="onChangeHandler(event)"
+							 enabled="false"/>
+				<s:TextInput id="userInfoId" x="59" y="346" change="onChangeHandler(event)"/>
+				<s:Label x="2" y="380" text="fadeDuration"/>
+				<s:TextInput id="fadeDuration" x="76" y="375" change="onChangeHandler(event)"/>
+				<s:Label x="8" y="4" text="className"/>
+				<s:Label id="classNameId" x="79" y="0" width="125" color="#F93535" fontSize="16"
+						 text="标签"/>
+				<s:Label x="10" y="27" text="id"/>
+				<s:TextInput id="idId" x="49" y="22" change="onChangeHandler(event)"/>
+				<s:Label x="10" y="81" text="parent"/>
+				<s:TextInput x="53" y="77" id="parentId"/>
+				<s:Button x="212" y="78" label="move" id="changeParentBtn" click="changeParentBtnHandler(event)"/>
+				<s:ComboBox x="54" y="77" id="parentCBId" labelField="name"/>
+				<s:Button x="319" id="deleteTheWindowBtn" y="0" width="29" label="X" click="deleteTheWindowHandler(event)"/>
+				<s:Label x="5" y="167" width="47" text="groupId"/>
+				<s:TextInput id="groupIdId" x="51" y="160" change="onChangeHandler(event)" toolTip="组id,checkBox需要用到"/>
+				<s:HGroup x="4" y="266" width="281">					
+					<s:Label x="4" y="274" height="18" text="lockFlag" verticalAlign="middle"/>
+					<s:CheckBox id="lcb" x="55" y="267" label="left" click="onChangeHandler(event)"/>
+					<s:CheckBox id="rcb" x="113" y="267" label="right" click="onChangeHandler(event)"/>
+					<s:CheckBox id="bcb" x="233" y="268" label="bottom" click="onChangeHandler(event)"/>				
+					<s:CheckBox id="tcb" x="177" y="268" label="top" click="onChangeHandler(event)"/>
+					<s:CheckBox id="acb" x="177" y="268" label="all" click="LockFlagChangeHandler(event)"/>
+				</s:HGroup>
+				<s:CheckBox id="bcb0" x="296" y="24" label="visible" click="onChangeHandler(event)"/>
+				<s:Label x="3" y="482" text="style"/>
+				<s:Scroller id="styleGroupScroller" x="1" y="499" width="167" height="202" horizontalScrollPolicy="off" verticalScrollPolicy="auto">					
+				<s:VGroup id="styleGroup"  gap="2">
+				</s:VGroup>					
+				</s:Scroller>
+				<s:Scroller id="styleDefaultGroupScroller" x="189" y="500" width="151" height="199" horizontalScrollPolicy="off">					
+				<s:VGroup id="styleDefaultGroup" gap="2">
+					<!--
+					<s:CheckBox id="style_0" x="51" y="100" label="REQUIRE_CHILD_NOTIFY" change="changeStyleHandler(event)" name="{WindowStyle.REQUIRE_CHILD_NOTIFY}" toolTip="REQUIRE_CHILD_NOTIFY"  />
+					<s:CheckBox id="style_1" x="51" y="100" label="CLIP_BY_PARENT"  change="changeStyleHandler(event)" name="{WindowStyle.CLIP_BY_PARENT}"/>
+					<s:CheckBox id="style_2" x="169" y="100" label="NO_MOUSEWHEEL"  change="changeStyleHandler(event)" name="{WindowStyle.NO_MOUSEWHEEL}"/>
+					<s:CheckBox id="style_3" x="221" y="84" label="TOP_MOST"  change="changeStyleHandler(event)" name="{WindowStyle.TOP_MOST}"/>
+					<s:CheckBox id="style_4" x="299" y="100" label="CHILD"  change="changeStyleHandler(event)" name="{WindowStyle.CHILD}"/>
+					-->
+				</s:VGroup>					
+				</s:Scroller>
+				<s:Button id="musicBtn1" x="218" y="406" label="选择" click="musicBtn_clickHandler(event)" name="musicBtn1"/>
+				<s:Button id="musicBtn2" x="218" y="433" label="选择" click="musicBtn_clickHandler(event)" name="musicBtn2"/>
+				<s:Button id="musicBtn3" x="218" y="458" label="选择" click="musicBtn_clickHandler(event)" name="musicBtn3"/>
+				<s:Label x="2" y="411" text="关闭声音"/>
+				<s:Label x="2" y="437" text="打开声音"/>
+				<s:Label x="3" y="463" text="点击声音"/>
+				<s:TextInput id="closeMusicId" x="59" y="406" width="151" editable="false"/>
+				<s:TextInput id="openMusicId" x="58" y="433" width="152" editable="false"/>
+				<s:TextInput id="clickMusicId" x="58" y="459" width="152" editable="false"/>
+				<!--
+				<s:Button id="transferBtn2" x="192" y="292" width="50" label="翻译" click="transferHandler(event)"/>
+				<s:Button id="transferBtn3" x="195" y="346" width="50" label="翻译" click="transferHandler(event)"/>
+				<s:Button id="transferBtn1" x="226" y="51" width="50" label="翻译" click="transferHandler(event)"/>
+				-->
+			</s:BorderContainer>
+			<ns1:ComponentDisplayItemView id="componetDisplayItemViews" width="100%" autoLayout="true" height="400" />
+							
+		</s:VGroup>
+	</s:Scroller>
+</s:Group>
+

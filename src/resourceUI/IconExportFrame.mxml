@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   width="316" height="218" close="titlewindow1_closeHandler(event)" textAlign="center"
+			   creationComplete="titlewindow1_addedToStageHandler(event)"
+			   addedToStage="titlewindow1_addedToStageHandler(event)"
+			   title="图标库生成">
+	<fx:Script>
+		<![CDATA[
+			import resourceUI.manager.IconResManager;
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				IconResManager.ICON_SIZE = uint(wId.text);
+				IconResManager.ICON_SPAN = IconResManager.ICON_SIZE+uint(hId.text);
+				IconResManager.BIG_ICON_NAME = fileNameId.text;
+				IconResManager.ICON_COUNT_PER_ROW = uint(rowId.text);
+				IconResManager.ICON_COUNT_PER_TEXTURE = uint(totalId.text);
+				IconResManager.OUTPUT_PATH = outPathId.text;
+					
+				IconResManager.instance.startExport();
+			}
+			
+			protected function titlewindow1_addedToStageHandler(event:Event):void
+			{
+				if(!wId)return;
+				wId.text = IconResManager.C_ICON_SIZE+"";
+				hId.text = IconResManager.C_ICON_GAP+"";
+				fileNameId.text = IconResManager.C_BIG_ICON_NAME;
+				rowId.text = IconResManager.C_ICON_COUNT_PER_ROW+"";
+				totalId.text = IconResManager.C_ICON_COUNT_PER_TEXTURE+"";
+				outPathId.text = IconResManager.C_OUTPUT_PATH;
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:Label x="23" y="38" width="57" height="16" text="图标大小"/>
+	<s:Label x="23" y="67" width="57" height="16" text="间隔大小"/>
+	<s:Label x="23" y="122" width="54" height="16" text="输出路径" textAlign="right"/>
+	<s:Label x="8" y="95" width="70" height="16" text="生成文件名" textAlign="right"
+			 verticalAlign="middle"/>
+	<s:TextInput id="wId" x="97" y="32" width="70" textAlign="left"/>
+	<s:TextInput id="hId" x="97" y="61" width="70" textAlign="left"/>
+	<s:TextInput id="fileNameId" x="97" y="89" textAlign="left"/>
+	<s:TextInput id="outPathId" x="97" y="117" textAlign="left"/>
+	<s:Button x="107" y="148" label="生成" click="button1_clickHandler(event)"/>
+	<s:Button x="233" y="117" label="选择" enabled="false"/>
+	<s:Label x="185" y="37" width="28" height="18" text="行数"/>
+	<s:Label x="184" y="62" width="28" height="18" text="总数"/>
+	<s:TextInput id="rowId" x="219" y="33" width="54"/>
+	<s:TextInput id="totalId" x="219" y="60" width="54"/>
+	<s:Label x="175" y="13" width="50" text="单张大图"/>
+</s:TitleWindow>

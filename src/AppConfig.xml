@@ -1,0 +1,32 @@
+<AppConfig>
+	<UpdateServer value="http://192.168.8.190/toolsUpdataCenter/UIEditor"/>
+	<Version value="2.5.3"/>
+	<FileName value="UIEditor.exe"/>
+	<Descritions>
+		<Desc value="2.5.3 复制，粘帖，删除可处理多选组件.对应快捷键Ctrl+c,Ctrl+v,Delete"/>
+		<Desc value="2.5.0 1）提供检测大图索引gui文件，2）提供可删除大图树列表"/>	
+		<Desc value="2.4.1 修复拖拉过程没建立小图内存导致拖拉功能失效。修复小图排序越界检测"/>
+		<Desc value="2.4.0 改进的资源大图排序算法"/>
+		<Desc value="2.3.0 添加了左上角相关按钮的快捷键，修复了粘贴按钮等组件的副本组件异常"/>
+		<Desc value="2.2.0 资源编辑器中添加导出Frame和Key两种xml配置表"/>
+		<Desc value="2.1.0 添加自动生成小图的图标配置xml"/>
+		<!-- 
+		<Desc value="2.0.0 新增修改大图名称同步更新，会残留小图配置表和旧的大图,可手动删除"/>	
+		<Desc value="1.9.3 添加对复合组件宽高更新同步到每个displayItem的rect属性"/>
+		<Desc value="1.9.2 修改导出图标路径和对应大图名格式"/>
+		<Desc value="1.9.1 修正组合组件同步更新"/>
+		<Desc value="1.9.0 增加方向键微调位置,用可控条控制部分属性,大图中点击小图查询小图名字"/>
+		<Desc value="1.8.0 新增多选拖拉移动小图功能，实时更新大图，大图配置文件，关联gui文件"/>		
+		<Desc value="1.7.0 1)新增导出图标大图\n2)新增删除小图检测gui文件3)新增复合基础组件的rect属性修改可预览效果\n"/>
+		<Desc value="1.6.0 自动同步更新gui文件"/>
+		<Desc value="1.5.2 导出翻译流程修正;同步更新组件宽高拉伸改为全部图片受影响"/>
+		<Desc value="1.5.1 翻译配置改成头部配置编号ID"/>
+		<Desc value="1.5.0 改成exe本机运行程序，以及自动更新"/>		
+		<Desc value="1.4.0 新增自动更新提交翻译功能;新增自动调整组件尺寸功能"/>
+		<Desc value="1.3.0 修复各种bug,优化同步更新功能的流程"/>
+		<Desc value="1.2.0 uiconfig配置表改为相对路径,Alt+mouseDown拖动组件"/>	
+		<Desc value="1.1.0 自动更新，加入翻译字典"/>
+		<Desc value="1.0UI编辑器"/>
+	 	-->
+	</Descritions>
+</AppConfig> 	

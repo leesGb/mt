@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" width="472" height="378" creationComplete="titlewindow1_creationCompleteHandler(event)" 
+			   close="titlewindow1_closeHandler(event)" addedToStage="titlewindow1_addedToStageHandler(event)"
+			   title="索引大图列表">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import core.TextureFileManager;
+			import core.CGUIEditorApp;
+			import deltax.graphic.manager.TextureMemoryManager;
+			
+			import events.UIDataEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.CollectionEvent;
+			import mx.events.DataGridEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			
+			import resourceUI.ReousrceManagerUI;
+			
+			import spark.events.GridItemEditorEvent;
+			public static const CHANGE_BIG_PIC_NAME:String = "change_big_pic_name";
+			private static var _instance:DependFileListView;
+			protected function titlewindow1_creationCompleteHandler(event:FlexEvent):void
+			{
+				// TODO Auto-generated method stub				
+				//dataGridId.addEventListener(CollectionEvent.COLLECTION_CHANGE,changeHandler);
+				updateBigList();
+			}
+			
+			public function updateBigList():void{
+				if(dataGridId==null)return;				
+				CGUIEditorApp.instance.ResetTextureId();
+				ReousrceManagerUI.instance.setLoadBigConfigList(TextureFileManager.getInstance().urls);
+				ReousrceManagerUI.instance.loadUIBigConfig();
+				var arr:Array = [];
+				for(var i:int=0,len:int=TextureFileManager.getInstance().urls.length;i<len;i++){
+					var url:String = TextureFileManager.getInstance().urls[i];
+					arr.push({url:url,index:i});
+				}
+								
+				dataGridId.dataProvider = new ArrayCollection(arr);				
+			}
+			
+			protected function okHandler(event:MouseEvent):void
+			{
+				titlewindow1_closeHandler(null);
+				return;
+				var arr:Array = ArrayCollection(dataGridId.dataProvider).source;
+				for(var i:int = 0;i<TextureFileManager.getInstance().urls.length;i++){
+					TextureFileManager.getInstance().urls[i] = arr[i]["url"];
+				}
+				CGUIEditorApp.instance.ResetTextureId(true);
+			}
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				// TODO Auto-generated method stub
+				PopUpManager.removePopUp(this);
+			}		
+
+			public static function get instance():DependFileListView
+			{
+				if(_instance==null){
+					_instance = new DependFileListView();					
+				}
+				return _instance;
+			}
+
+			private var oldUrlTmp:String="";
+			protected function dataGridId_gridItemEditorSessionSaveHandler(event:GridItemEditorEvent):void
+			{				
+				var changedUrl:String = dataGridId.selectedItem.url;
+				if(changedUrl==oldUrlTmp)return;
+				for(var j:int=0,len:int=dataGridId.dataProvider.length;j<len;j++){
+					var ob:Object = dataGridId.dataProvider.getItemAt(j);
+					if(j!=dataGridId.selectedIndex && ob.url==changedUrl){
+						dataGridId.selectedItem.url = oldUrlTmp;
+						Alert.show("批量修改的Url已经存在,不可修改!");
+						return;
+					}
+				}
+				dispatchEvent(new events.UIDataEvent(CHANGE_BIG_PIC_NAME,{oldUrl:oldUrlTmp,newUrl:dataGridId.selectedItem.url}));
+				Alert.show("批量修改路径成功");
+			}
+			
+			protected function dataGridId_gridItemEditorSessionStartHandler(event:GridItemEditorEvent):void
+			{
+				oldUrlTmp = dataGridId.selectedItem.url;
+			}
+			
+			protected function titlewindow1_addedToStageHandler(event:Event):void
+			{
+				updateBigList();
+			}
+			
+		]]>
+	</fx:Script>
+	<s:DataGrid id="dataGridId" x="10" y="10" width="450" height="300" requestedRowCount="4" editable="true" gridItemEditorSessionStart="dataGridId_gridItemEditorSessionStartHandler(event)" gridItemEditorSessionSave="dataGridId_gridItemEditorSessionSaveHandler(event)">
+		<s:columns>
+			<s:ArrayList>
+				<s:GridColumn width="50" dataField="index" headerText="index" ></s:GridColumn>
+				<s:GridColumn dataField="url" headerText="url" editable="true"></s:GridColumn>
+			</s:ArrayList>
+		</s:columns>
+	</s:DataGrid>
+	<s:Button x="200" y="318" label="关闭" click="okHandler(event)" visible="true"/>
+</s:TitleWindow>

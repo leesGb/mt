@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:HGroup xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="630" height="44" 
+		  creationComplete="application1_creationCompleteHandler(event)">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<fx:XML id="menuXml" xmlns="">
+			<root>
+				<menu label="导入" name="import"></menu>
+				<menu label="导出" name="export"></menu>
+				<menu label="清除" name="clean"></menu>
+				<menu label="复制" name="copy"></menu>
+				<menu label="粘贴" name="plaster"></menu>
+				<menu label="贴图列表" name="dependImgList"></menu>
+			</root>
+		</fx:XML>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import com.hmh.utils.FileHelper;
+			
+			import core.CGUIEditorApp;
+			import core.TextureFileManager;
+			
+			import deltax.common.localize.LanguageMgr;
+			import deltax.common.resource.Enviroment;
+			import deltax.delta;
+			import deltax.gui.base.GUIVersion;
+			import deltax.gui.base.WindowCreateParam;
+			import deltax.gui.base.WindowResource;
+			import deltax.gui.component.DeltaXWindow;
+			import deltax.gui.manager.WindowClassManager;
+			
+			import displayUI.select.SelectView;
+			
+			import events.KeyEvent;
+			
+			import flash.events.Event;
+			import flash.net.FileFilter;
+			import flash.net.FileReference;
+			import flash.utils.Endian;
+			
+			import manager.KeyBoardManager;
+			import manager.KeyCode;
+			
+			import mx.collections.XMLListCollection;
+			import mx.events.FlexEvent;
+			import mx.events.MenuEvent;
+			import mx.managers.PopUpManager;
+			
+			import resourceUI.IconExportFrame;
+			import resourceUI.ReousrceManagerUI;
+			
+			import spark.components.RichEditableText;
+			import spark.events.IndexChangeEvent;
+			
+			import utils.DicUtil;
+			
+			use namespace delta;
+			
+			private var menuBarXML:XMLList = 
+				<>
+				<menuitem label="编辑">
+				 <menuitem label="资源编辑器" value="resEditorPanel"/>
+				</menuitem>
+				</>;
+			[Bindable]private var menuBarData:XMLListCollection;
+			
+			protected function application1_creationCompleteHandler(event:FlexEvent):void
+			{
+				menuBarData = new XMLListCollection(menuBarXML);
+				resEditUI =ReousrceManagerUI.instance;		
+				
+				KeyBoardManager.instance.addEventListener(KeyEvent.KEY_BOARD_DOWN,onKeyDownHandler);
+			}			
+			
+			
+			public function exportHandler(event:Event):void {
+				if (CGUIEditorApp.instance.gameMainPanel.childTopMost == null) return;												
+				//textureid
+				CGUIEditorApp.instance.ResetTextureId();
+				svnUpdateHandler(null);
+				//DicUtil.svnUpdate(svnUpdateHandler);
+				trace('svn update...');
+			}
+			
+			private function svnUpdateHandler(e:Event):void
+			{
+				//语言包处理
+				DicUtil.synUIDic();
+				DicUtil.addEventListener(reloadUIHanlder);
+				trace('success');
+				trace('reload uilanguage.txt...');
+			}
+			
+			private function reloadUIHanlder(e:Event):void
+			{
+				trace('success');							
+				trace('save gui file');
+				var data:ByteArray = new ByteArray();
+				data.endian = Endian.LITTLE_ENDIAN;
+				var windowResource:WindowResource = new WindowResource();
+				windowResource.textureMap = TextureFileManager.getInstance().urls;
+				//windowResource.write(data,CGUIEditorApp.instance.gameMainPanel);
+				windowResource.m_version =  GUIVersion.ADD_FADE_DURATION;
+				windowResource.childCreateParams = new Vector.<WindowCreateParam>();
+				windowResource.createParam = CGUIEditorApp.instance.gameMainPanel.childTopMost.changeToCreateParam();
+				var childWindow:DeltaXWindow = CGUIEditorApp.instance.gameMainPanel.childTopMost.childBottomMost;
+				while(childWindow)
+				{
+					windowResource.childCreateParams.push(childWindow.changeToCreateParam());
+					childWindow = childWindow.brotherAbove;
+				}
+				addTempDicAndFulshToDic(windowResource);
+				windowResource.write(data);
+				//data.compress();
+				var file:FileReference = new FileReference();
+				file.save(data,CGUIEditorApp.instance.gameMainPanel.childTopMost.changeToCreateParam().id+".gui");				
+				file.addEventListener(Event.COMPLETE,fileSaveCom);
+				
+			}					
+			
+			protected function fileSaveCom(event:Event):void
+			{
+				trace('success');						
+				DicUtil.writeUpatedFile();
+				trace('svn commit');
+				//DicUtil.svnCommit(svnCommitHanlder);
+			}
+			private function svnCommitHanlder():void
+			{
+				trace('success');
+			}
+			
+			public function clearnHandler(event:Event):void{
+				while(CGUIEditorApp.instance.gameMainPanel.childBottomMost)
+					CGUIEditorApp.instance.gameMainPanel.childBottomMost.remove();
+				//if(CGUIEditorApp.instance.layoutTree.selectedIndex!=-1){
+					//var sWin:DeltaXWindow=CGUIEditorApp.instance.allwindows[CGUIEditorApp.instance.layoutTree.selectedItem.@value];
+					//if(sWin)
+					//sWin.remove();
+				//}
+				CGUIEditorApp.instance.updateLayoutTree();
+			}
+			
+			public function importHandler(event:Event):void{
+				var file:File = new File(Enviroment.ResourceRootPath+"gui/cfg/");
+				file.addEventListener(Event.SELECT,__importCompleteHandler);
+				file.browseForOpen("选择gui文件",[new FileFilter("gui","*.gui")]);
+			}
+			private function __importCompleteHandler(event:Event):void{
+				var fiel:File = event.currentTarget as File;
+				var path:String = FileHelper.getResComparPath(fiel.nativePath);
+				CGUIEditorApp.instance.importGui(path);
+			}
+			
+			private var curCopyWinparam:WindowCreateParam;
+
+			public function copyHandler(event:Event):void{
+				onCopy();
+			}
+			public function plasterHandler(event:Event):void{
+				onPaste();
+			}
+			
+			private function onKeyDownHandler(e:KeyEvent):void
+			{
+				if(e.focusTarget is RichEditableText && RichEditableText(e.focusTarget).editable)
+				{
+					if(e.ctrlKey && e.keyCode == KeyCode.C)
+					{
+						copyWinparamArr = [];
+					}
+					return;
+				}
+				if(!e.ctrlKey)
+				{
+					return;
+				}
+				if(e.keyCode == KeyCode.C)
+				{
+					onCopy();
+				}else if(e.keyCode == KeyCode.V)
+				{
+					onPaste();
+				}
+			}
+			
+			private var copyWinparamArr:Array;
+			private function onCopy():void
+			{
+				copyWinparamArr = [];
+				for(var i:int =0;i<SelectView.instance.selectGuiArr.length;i++)
+				{
+					copyWinparamArr.push({parent:SelectView.instance.selectGuiArr[i].parent,param:SelectView.instance.selectGuiArr[i].changeToCreateParam()});
+				}
+			}
+			private function onPaste():void
+			{
+				if(!copyWinparamArr || copyWinparamArr.length == 0){
+					return;
+				}
+				for(var i:int =0;i<copyWinparamArr.length;i++)
+				{
+					var oneClass:Class = WindowClassManager.getComponentClassByName(copyWinparamArr[i].param.className);
+					var win:DeltaXWindow = new oneClass() as DeltaXWindow;
+					copyWinparamArr[i].parent.initComponentFromRes(copyWinparamArr[i].param,win);
+				}
+				CGUIEditorApp.instance.updateLayoutTree();
+				copyWinparamArr = [];
+			}
+			
+			protected function showDependFileViewHandler(event:MouseEvent):void
+			{							
+				if(DependFileListView.instance.parent){
+					PopUpManager.removePopUp(DependFileListView.instance);
+					return;
+				}
+				PopUpManager.addPopUp(DependFileListView.instance,this.parent);
+				DependFileListView.instance.y = 50;
+				DependFileListView.instance.x = 160;				
+			}
+						
+			protected function menuClickHandler(event:MenuEvent):void
+			{
+				switch(event.item.@value.toString()){
+					case "resEditorPanel":
+						var view:PicResEditorView = PopUpManager.createPopUp(this.stage,PicResEditorView,true) as PicResEditorView;
+						PopUpManager.centerPopUp(view);
+						break;
+				}
+			}									
+			
+			protected function btnBar_changeHandler(event:IndexChangeEvent):void
+			{
+				if(event.newIndex<0)return;
+				switch(String("0"))
+				{
+					case "import":
+						importHandler(null);
+						break;
+					case "export":
+						exportHandler(null);
+						break;	
+					case "clean":
+						clearnHandler(null);
+						break;	
+					case "copy":
+						copyHandler(null);
+						break;	
+					case "plaster":
+						plasterHandler(null);
+						break;	
+					case "dependImgList":
+						showDependFileViewHandler(null);
+						break;	
+				}
+			}
+			
+			private var resEditUI:ReousrceManagerUI;
+			protected function button1_clickHandler(event:MouseEvent):void
+			{				
+				if(!resEditUI.parent){
+					resEditUI.x = int((stage.stageWidth-resEditUI.width)/2);
+					resEditUI.y = int((stage.stageHeight-resEditUI.height)/2);
+					PopUpManager.addPopUp(resEditUI,this,true);
+				}else{
+					PopUpManager.removePopUp(resEditUI);
+				}
+			}											
+						
+			
+			protected function selectFileHanlder(event:Event):void
+			{				
+			}			
+			
+			private function addTempDicAndFulshToDic(winRes:WindowResource):void
+			{
+				LanguageMgr.addTempTranslation(winRes.createParam.title);
+				LanguageMgr.addTempTranslation(winRes.createParam.fontName);
+				LanguageMgr.addTempTranslation(winRes.createParam.tooltip);
+				LanguageMgr.addTempTranslation(winRes.createParam.userInfo);
+				for each(var createParam:WindowCreateParam in winRes.childCreateParams){
+					LanguageMgr.addTempTranslation(createParam.title);
+					LanguageMgr.addTempTranslation(createParam.fontName);
+					LanguageMgr.addTempTranslation(createParam.tooltip);
+					LanguageMgr.addTempTranslation(createParam.userInfo);
+				}
+				LanguageMgr.flushUITranslation();
+			}
+			
+			private var iconFame:IconExportFrame;
+			protected function button2_clickHandler(event:MouseEvent):void
+			{
+				if(!iconFame) iconFame = new IconExportFrame();
+				PopUpManager.addPopUp(iconFame,CGUIEditorApp.instance);
+				PopUpManager.centerPopUp(iconFame);
+				//IconResManager.instance.startExport();
+			}
+			
+		
+			
+		]]>
+	</fx:Script>
+	<s:Button width="60" height="38" label="导入"  click="importHandler(event)" toolTip="ctrl+r"/>
+	<s:Button width="60" height="38" label="导出" click="exportHandler(event)" toolTip="ctrl+s"/>
+	<s:Button width="60" height="38" label="清除" click="clearnHandler(event)" toolTip="ctrl+w"/>
+	<s:Button width="60" height="38" label="复制" click="copyHandler(event)" toolTip="ctrl+c"/>
+	<s:Button width="60" height="38" label="粘贴" click="plasterHandler(event)" toolTip="ctrl+v"/>
+	<s:Button width="80" height="38" label="贴图列表" click="showDependFileViewHandler(event)"/>
+	<s:Button width="85" height="38" label="图标库生成" click="button2_clickHandler(event)"/>
+	<s:Button width="85" height="38" label="资源编辑器" click="button1_clickHandler(event)"/>
+	<mx:MenuBar dataProvider="{menuBarData}" width="90%" labelField="@label" itemClick="menuClickHandler(event)"  visible="false"/>			
+</s:HGroup>

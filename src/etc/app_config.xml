@@ -1,0 +1,4 @@
+<Config width='1024' height='768' fps='60' antialias='2'  throw_error='1' log_enable='1' log_level='2' >
+	<server ip="192.168.2.16" port="4050"/>
+</Config>
+

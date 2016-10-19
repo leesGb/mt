@@ -1,0 +1,1026 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" width="810" height="700"
+			   isPopUp="true"
+			   close="titlewindow1_closeHandler(event)"	
+			   creationComplete="init()"
+			   addedToStage="titlewindow1_addedToStageHandler(event)"
+			   >
+	<fx:Declarations>
+		<s:ArrayCollection id="importPicMenu">
+			<fx:Object label="自动导入图" index="1"/>
+			<fx:Object label="插序导入图" index="3"/>
+		</s:ArrayCollection>
+		
+		<s:ArrayCollection id="exportMenu">
+			<fx:Object label="导出大图" index="1"/>
+			<fx:Object label="导出Frame配置" index="2"/>
+			<fx:Object label="导出Key配置" index="3"/>
+		</s:ArrayCollection>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import deltax.common.resource.Enviroment;
+			import deltax.graphic.manager.DeltaXTextureManager;
+			import deltax.gui.manager.GUIManager;
+			
+			import flash.filters.GlowFilter;
+			import flash.utils.getTimer;
+			import flash.utils.setTimeout;
+			
+			import flashx.textLayout.operations.CopyOperation;
+			
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.core.DragSource;
+			import mx.events.CloseEvent;
+			import mx.events.DragEvent;
+			import mx.events.DropdownEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.formatters.DateFormatter;
+			import mx.graphics.codec.PNGEncoder;
+			import mx.managers.DragManager;
+			import mx.managers.PopUpManager;
+			
+			import resourceUI.blg.SortPicManager;
+			import resourceUI.manager.DragPicManager;
+			import resourceUI.manager.ExportManager;
+			import resourceUI.manager.GuiFileManger;
+			import resourceUI.manager.QuoteGuiFileManager;
+			
+			import spark.events.DropDownEvent;
+			import spark.primitives.Rect;
+			
+			import utils.ClipBoardManager;
+			
+			public static const UDPATE_RESOURCE_DATA:String = "udpate_resource_data";
+			private static var _instance:ReousrceManagerUI;
+			private var _resData:XMLListCollection; 
+			public var SIZE:Point = new Point(512,512);
+			private const D:int = 2;
+			private var curRes:Sprite = new Sprite();			
+			private var curPic:Bitmap;//当前显示的图			
+			public static var picList:Dictionary = new Dictionary();
+			private var picTmpList:Dictionary = new Dictionary();//文件选择的时候 
+			public var URL_BIGPIC:String;
+			public var URL_SMALLPIC_CONFIG:String;
+			public static const CHAR_CODE:String = "utf-8";
+			private var setPicNameDialog:CreateResDialog = new CreateResDialog();	
+			private var redFilter:GlowFilter=new GlowFilter(0xff0000, 1, 10, 10, 3, 1, false, false);
+			private var _loadBigConfigList:Array=null;
+			private var checkFullList:Array;
+
+			public function setConfig():void{
+				URL_BIGPIC=Enviroment.ResourceRootPath + "gui/tex/";
+				URL_SMALLPIC_CONFIG = Global.flaPath + "uiconfig/";
+			}
+			
+			protected function init():void
+			{		
+				loadUIBigConfig();
+				curRes.graphics.lineStyle(D,0x00ff00);
+				curRes.graphics.drawRect(0,0,SIZE.x+D,SIZE.y+D);
+				curRes.graphics.endFill();
+				curRes.x = curRes.y =  D;
+				showUI.addChild(curRes);
+			}
+			
+			public function setLoadBigConfigList(value:Vector.<String>):void
+			{
+				var tmp:Array=[];
+				for each(var url:String in value){
+					try{
+						var file:File = new File(url);
+						if(file.exists){
+							var fileName:String = file.name.replace(".png","");
+							var configFile:File = new File(URL_SMALLPIC_CONFIG+fileName+".xml");
+							if(configFile.exists){
+								tmp.push(configFile);
+							}
+						}
+					}catch(e:Error){
+						trace(e.message);
+					}
+				}
+				_loadBigConfigList = tmp;
+				
+			}
+			
+			public function loadUIBigConfig():void
+			{
+				var file:File = new File(URL_SMALLPIC_CONFIG);
+				var arr:Array = _loadBigConfigList?_loadBigConfigList:file.getDirectoryListing();
+				var flag:Boolean = false;
+				var totalXml:XML=new XML("<root/>");
+				for(var i:int=0;i<arr.length;i++){
+					var afile:File = arr[i];
+					if(afile.exists && !afile.isDirectory){
+						var fs:FileStream = new FileStream();
+						fs.open(afile,FileMode.READ);
+						var xml:XML = new XML(fs.readMultiByte(fs.bytesAvailable,CHAR_CODE));
+						totalXml.appendChild(xml.bigPic);
+						fs.close();
+						flag = true;
+					}
+				}
+				
+				if(flag){//有内容
+					//补充路径
+					var dxxml:XMLList = totalXml.children();
+					for each(var dxml:XML in dxxml){
+						dxml.@url = BigPicVo.decUrl(String(dxml.@url));
+						for each(var exl:XML in dxml.elements()){
+							exl.@url = SmallPicVo.decUrl(String(exl.@url));
+						}
+					}
+					
+					//
+					if(!resData){
+						resData = new XMLListCollection(XMLList(totalXml));
+					}else{
+						var txml:XML = new XML("<root>"+resData.source.children().toString()+"</root>");
+						var txxml:XMLList = totalXml.children();
+						for each(var axl:XML in txxml){
+							var aname:String = axl.@name;
+							if(txml.bigPic.(@name==aname)==undefined){
+								txml.appendChild(axl);
+							}
+						}						
+						resData.source = XMLList(txml);
+					}
+					updateTreeView();
+					
+					for(var j:int=0,len:int=resData.source.bigPic.length();j<len;j++){//目前一张大图配置表一个文件
+						var xl:XML = resData.source.bigPic[j];
+						var pVo:BigPicVo = new BigPicVo(xl.@name,xl.@url);
+						
+						var smXl:XMLList = xl.children();
+						for(var p:int=0,plen:int=smXl.length();p<plen;p++){
+							var axml:XML = smXl[p] as XML;
+							if(!picList[String(axml.@url)]){
+								var vo:SmallPicVo = new SmallPicVo();
+								vo.fileName = axml.@name;
+								vo.width = axml.@width;
+								vo.height = axml.@height;
+								vo.y = axml.@y;
+								vo.x = axml.@x;
+								vo.fileUrl = axml.@url;
+								vo.parent = pVo;
+								vo.area = vo.width*vo.height;
+								picList[vo.fileUrl] = vo;
+							}
+						}						
+						//ResUIData.loadComCallBack = inciseBitmap;
+						pVo.bitmap = ResUIData.getPic(pVo.url,ResUIData.BIG);						
+					}					
+					dispatchEvent(new Event(ReousrceManagerUI.UDPATE_RESOURCE_DATA));
+					trace("加载大图配置表成功!");
+				}
+			}
+			
+			public function updateTreeView():void{
+				if(resTree && resData){
+					resTree.dataProvider = resData;
+					resTree.validateNow();
+					var leng:int = resData.length; 
+//					for(var g:int=0;g<leng;g++){
+//						resTree.expandChildrenOf(resData.getItemAt(g),true);					
+//					}
+				}
+			}
+			
+			private function inciseBitmap(abm:Bitmap,url:String):void
+			{
+				for each(var vo:SmallPicVo in picList){
+					var bigVo:BigPicVo = vo.parent;					
+					if(bigVo==null)continue;
+					if(vo.parent.url==url){
+						vo.parent.bitmap = abm;
+						if(vo.bitmap==null){
+							vo.bitmap = new Bitmap();
+							var bmd:BitmapData = new BitmapData(vo.width,vo.height,true,0);
+							bmd.copyPixels(abm.bitmapData,new Rectangle(vo.x,vo.y,vo.width,vo.height),new Point(),null,null,true);
+							vo.bitmap.bitmapData = bmd;
+						}
+					}
+				}
+			}
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				if(this.parent){
+					this.parent.removeChild(this);
+				}
+			}
+			
+			protected function newBtn_clickHandler(event:MouseEvent):void
+			{				
+				setPicNameDialog.clickFun = callbackSetPicName;
+				setPicNameDialog.x = this.x+(this.width - setPicNameDialog.width)/2;
+				setPicNameDialog.y = this.y+(this.height- setPicNameDialog.height)/2;
+				PopUpManager.addPopUp(setPicNameDialog,this,true);
+			}
+			
+			private function callbackSetPicName(e:MouseEvent):void{
+				SIZE.x = setPicNameDialog.picSizeW;
+				SIZE.y = setPicNameDialog.picSizeH;
+				updateCurRes(SIZE.x,SIZE.y);
+				var bmd:BitmapData = new BitmapData(SIZE.x,SIZE.y,true,0);
+				curPic = new Bitmap();
+				curPic.bitmapData = bmd;
+				ResUIData.bigPicList[URL_BIGPIC+setPicNameDialog.picName+".png"] = curPic;
+				newTree(setPicNameDialog.picName);
+				PopUpManager.removePopUp(setPicNameDialog);
+			}
+			
+			protected function importBtn_clickHandler(event:DropdownEvent):void
+			{
+				if(resTree.selectedItem==null || resTree.selectedItem.name()!="bigPic"){
+					Alert.show("请选择要添加的资源节点");
+					return;
+				}				
+				var tmp:File = new File(Global.flaPath+resTree.selectedItem.@name);
+				var file:File = tmp.exists?tmp:new File(Global.flaPath);
+				file.addEventListener(FileListEvent.SELECT_MULTIPLE,selecthanlder);
+				file.browseForOpenMultiple("为资源添加图片",[new FileFilter("图片","*.jpg;*.png;*.JPG;*.PNG")]);
+			}
+			
+			private var loader:Loader;		
+			private var curLoaderIndex:int;
+			private var maxLoaderIndex:int;
+			protected function selecthanlder(event:FileListEvent):void
+			{
+				var list:Array = event.files;
+				if((list[0] as File).nativePath.toLocaleLowerCase().indexOf(Global.flaPath)==-1){//不在指定flaPath目录
+					Alert.show("加载的图片路径必须在"+Global.flaPath);
+					return;
+				}
+				maxLoaderIndex = list.length;
+				curLoaderIndex = 0;
+				picTmpList = new Dictionary();
+				var alertTip:String="";
+				//				
+				var bigVo:BigPicVo = new BigPicVo(resTree.selectedItem.@name,resTree.selectedItem.@url);
+				bigVo.bitmap = curPic;
+				//
+				for each(var file:File in list){
+					var vo:SmallPicVo = new SmallPicVo(file);
+					vo.fileUrl = SmallPicVo.decUrl(vo.fileUrl);
+					vo.parent = bigVo;
+					if(picList[vo.fileUrl]!=null){
+						alertTip += picList[vo.fileUrl].fileName+"已覆盖\n";
+						//continue;//跳过已经加载的
+					}
+					var byteArray:ByteArray = new ByteArray();
+					var fs:FileStream = new FileStream();
+					fs.open(file,FileMode.READ);
+					fs.readBytes(byteArray,0,fs.bytesAvailable);
+					//
+					loader = new Loader();
+					picTmpList[vo.fileUrl] = vo;
+					loader.name = vo.fileUrl;
+					loader.contentLoaderInfo.addEventListener(Event.COMPLETE,imgLoaderComplete);
+					loader.contentLoaderInfo.addEventListener(IOErrorEvent.IO_ERROR,error);
+					loader.loadBytes(byteArray);
+					fs.close();
+				}
+				importCombox.enabled = false;
+				if(alertTip!=""){
+					Alert.show(alertTip);
+					importCombox.enabled = true;
+				}
+			}
+			
+			protected function imgLoaderComplete(event:Event):void
+			{
+				event.target.removeEventListener(Event.COMPLETE,imgLoaderComplete);				
+				var bitmap:Bitmap = event.target.loader.content as Bitmap;
+				
+				var vo:SmallPicVo = picTmpList[event.target.loader.name];
+				vo.width = bitmap.width;
+				vo.height = bitmap.height;
+				vo.area = bitmap.width*bitmap.height;
+				vo.bitmap = bitmap;
+				event.target.loader.unload();
+				//bitmap.bitmapData.getColorBoundsRect();//用于去除透明区域				
+				curLoaderIndex++;
+				if(curLoaderIndex==maxLoaderIndex){
+					loadAllComplete();
+				}
+			}
+			
+			private function loadAllComplete():void
+			{
+				importCombox.enabled = true;
+				var vo:SmallPicVo;
+				//check maxArea
+
+				if(checkIsFull(picTmpList,curPic,SIZE)) return;
+				
+				//save valid vo
+				for each(vo in picTmpList){									
+					picList[vo.fileUrl] = vo;
+				}
+				dispatchEvent(new Event(UDPATE_RESOURCE_DATA));
+				
+				switch(importCombox.selectedItem.index)
+				{
+					case 1:SortAPic(curPic);break;
+					case 2:SortBPic(curPic);break;
+					case 3:SortCPic(curPic);break;	 
+				}
+				
+				//
+				updateTreeNode();
+				var sortList:Array=[];
+				for each(vo in picTmpList){
+					sortList.push(vo);					
+				}
+				sortList.sortOn("fileName");
+				for each(vo in sortList){
+					addTreeNode(vo);
+				}				
+				resTree.openItems =resTree.selectedItem;
+			}
+			
+			public function SortAPic(targetPic:Bitmap):Boolean
+			{				
+				var vo:SmallPicVo;
+				//order by area
+				var orders:Array=[];
+				for each(vo in picList){
+					if(vo && vo.parent.bitmap==targetPic){
+						orders.push(vo);
+					}
+				}				
+				
+				var curPicData:BitmapData = targetPic.bitmapData;
+				if(curPicData.width!=SIZE.x || curPicData.height!=SIZE.y){
+					targetPic.bitmapData = new BitmapData(SIZE.x,SIZE.y,true,0xffffff);
+					curPicData = targetPic.bitmapData; 
+				}else{
+					curPicData.fillRect(curPicData.rect,0xffffff);
+				}
+				//order in bigPic
+				var sortsuccess:Boolean=true;
+				orders.sortOn(["area","fileName"],[Array.NUMERIC|Array.DESCENDING,Array.CASEINSENSITIVE]);				
+				var success:Boolean = SortPicManager.instance.getSolution(SIZE,orders,SortPicManager.BLG_BP);				
+				if(success){
+					for(var i:int=0;i<orders.length;i++){
+						var vo:SmallPicVo = orders[i];
+						drawSmallPic(curPicData,vo);
+					}
+				}else{
+					sortsuccess = SortBPic(targetPic);
+//					Alert.show("图片排序越界");
+				}										
+				return sortsuccess;
+			}		
+			
+			private function drawSmallPic(curPicData:BitmapData,vo:SmallPicVo):void{
+				var voBmd:BitmapData = vo.bitmap.bitmapData;				
+				curPicData.copyPixels(voBmd,voBmd.rect,new Point(vo.x,vo.y),null,null,true);
+				//四条边
+				curPicData.copyPixels(voBmd,new Rectangle(0,0,1,vo.height),new Point(vo.x-1,vo.y),null,null,false);
+				curPicData.copyPixels(voBmd,new Rectangle(0,0,vo.width,1),new Point(vo.x,vo.y-1),null,null,false);
+				curPicData.copyPixels(voBmd,new Rectangle(vo.width-1,0,1,vo.height),new Point(vo.x+vo.width,vo.y),null,null,false);
+				curPicData.copyPixels(voBmd,new Rectangle(0,vo.height-1,vo.width,1),new Point(vo.x,vo.y+vo.height),null,null,false);
+				//四个角
+				curPicData.copyPixels(voBmd,new Rectangle(0,0,1,1),new Point(vo.x-1,vo.y-1),null,null,false);				
+				curPicData.copyPixels(voBmd,new Rectangle(vo.width-1,0,1,1),new Point(vo.x+vo.width,vo.y-1),null,null,false);				
+				curPicData.copyPixels(voBmd,new Rectangle(0,vo.height-1,1,1),new Point(vo.x-1,vo.y+vo.height),null,null,false);
+				curPicData.copyPixels(voBmd,new Rectangle(vo.width-1,vo.height-1,1,1),new Point(vo.x+vo.width,vo.y+vo.height),null,null,false);
+			}
+			
+			//插入排序
+			private function SortBPic(targetPic:Bitmap):Boolean
+			{
+				var vo:SmallPicVo;
+				//order by area
+				var orders:Array=[];
+				for each(vo in picList){
+					if(vo && vo.parent.bitmap==targetPic){
+						orders.push(vo);
+					}
+				}
+				orders.sortOn(["area","fileName"],[Array.NUMERIC|Array.DESCENDING,Array.CASEINSENSITIVE]);
+				
+				var curPicData:BitmapData = targetPic.bitmapData;
+				if(curPicData.width!=SIZE.x || curPicData.height!=SIZE.y){
+					targetPic.bitmapData = new BitmapData(SIZE.x,SIZE.y,true,0xffffff);
+					curPicData = targetPic.bitmapData; 
+				}else{
+					curPicData.fillRect(curPicData.rect,0xffffff);
+				}
+				//order in bigPic
+				var isCrossBorder:Boolean=false;
+				var curX:int=1;
+				var maxY:int=1;
+				var maxH:int=0;
+				for(var i:int=0;i<orders.length;i++){
+					vo = orders[i] as SmallPicVo;
+					if(curX+vo.width>SIZE.x){
+						maxY +=maxH;
+						maxH=0;
+						curX=1;
+					}
+					vo.x = curX; 
+					vo.y = maxY;
+					if(!isCrossBorder){
+						isCrossBorder = vo.x+vo.width+1>SIZE.x || vo.y+vo.height+1>SIZE.y;
+					}
+					if(vo.bitmap){						
+						drawSmallPic(curPicData,vo);						
+					}
+					curX += vo.width+3;
+					maxH = maxH>vo.height?maxH:vo.height+3;
+				}
+				if(isCrossBorder){
+					Alert.show("图片越界！");
+				}
+				return !isCrossBorder;
+			}
+			
+			private function SortCPic(targetPic:Bitmap):void{
+				var vo:SmallPicVo;
+				//order by area
+				var orders:Array=[];
+				for each(vo in picList){
+					if(vo && vo.parent.bitmap==targetPic){
+						orders.push(vo);
+					}
+				}
+				orders.sortOn(["area","fileName"],[Array.NUMERIC|Array.DESCENDING,Array.CASEINSENSITIVE]);							
+				for each(vo in picTmpList){
+					var index:int = orders.indexOf(vo);
+					if(index!=-1){
+						orders.splice(index,1);
+						orders.push(vo);
+					}
+				}
+				var curPicData:BitmapData = targetPic.bitmapData;
+				if(curPicData.width!=SIZE.x || curPicData.height!=SIZE.y){
+					targetPic.bitmapData = new BitmapData(SIZE.x,SIZE.y,true,0xffffff);
+					curPicData = targetPic.bitmapData; 
+				}else{
+				}
+				//order in bigPic
+				var isCrossBorder:Boolean=false;
+				var curX:int=1;
+				var maxY:int=1;
+				var maxH:int=0;
+				for(var i:int=0;i<orders.length;i++){
+					vo = orders[i] as SmallPicVo;
+					if(curX+vo.width>SIZE.x){
+						maxY +=maxH;
+						maxH=0;
+						curX=1;
+					}
+					vo.x = curX; 
+					vo.y = maxY;
+					if(!isCrossBorder){
+						isCrossBorder = vo.x+vo.width+1>SIZE.x || vo.y+vo.height+1>SIZE.y;
+					}
+					if(picTmpList[vo.fileUrl]!=undefined && vo.bitmap){						
+						drawSmallPic(curPicData,vo);
+					}
+					curX += vo.width+3;
+					maxH = maxH>vo.height?maxH:vo.height+3;
+				}
+				if(isCrossBorder){
+					Alert.show("图片越界！");
+				}				
+			}
+			
+			public function checkIsFull(picTmpList:Dictionary,targetPic:Bitmap,MAX:Point):Boolean{
+				var maxArea:Number = MAX.x*MAX.y;
+				var totalArea:Number=0;
+				for each(vo in picList){
+					if(vo && picList[vo.fileUrl]!=null)continue;
+					if(vo && vo.parent.bitmap==targetPic){
+						totalArea+=vo.area;
+					}
+				}
+				var vo:SmallPicVo;
+				//check maxArea
+				for each(vo in picTmpList){
+					totalArea+=vo.area;
+					if(totalArea>maxArea){
+						Alert.show("当前资源没有足够的空白地带");						
+						return true;
+					}					
+				}
+				return false;
+			}
+						
+			private var rootXl:XML;
+			private function newTree(picName:String):void
+			{				
+				var xmlList:XML = XML("<bigPic/>");
+				xmlList.@name=picName; 
+				xmlList.@url=URL_BIGPIC+picName+".png";
+				xmlList.@width = SIZE.x;
+				xmlList.@height = SIZE.y;
+				if(resData==null){
+					rootXl = XML("<root></root>");
+					rootXl.appendChild(xmlList);
+					resData = new XMLListCollection(XMLList(rootXl));
+				}else{
+					var aml:XML = XML(resData.source);
+					aml.appendChild(xmlList);
+				}
+				resTree.dataProvider = resData;	
+				resTree.selectedIndex = resData.source.length()-1;
+			}
+			
+			private function addTreeNode(vo:SmallPicVo):void
+			{
+				if(resTree.selectedItem!=null){
+					var newNode:XML=<smallPic/>;
+					newNode.@name = vo.fileName;
+					newNode.@width = vo.width;
+					newNode.@height = vo.height;
+					newNode.@x = vo.x;
+					newNode.@y = vo.y;
+					newNode.@url = vo.fileUrl;
+					var node:XML = XML(resTree.selectedItem);
+					if (node.length() > 0)
+					{
+						if(node.smallPic.(@name==vo.fileName)!=undefined){
+							var axxl:XMLList = node.smallPic.(@name==vo.fileName);
+							var axl:XML = axxl[0];
+							axl.@name = vo.fileName;
+							axl.@width = vo.width;
+							axl.@height = vo.height;
+							axl.@x = vo.x;
+							axl.@y = vo.y;
+							axl.@url = vo.fileUrl;
+						}else{
+							node[0].appendChild(newNode);
+						}
+					}
+				}				
+			}					
+			
+			public function updateTreeNode():void{
+				var root:XMLList = resData.source;				
+				for each(var node:XML in root.elements()){ 				
+					for(var i:int=0,len:int=node.elements().length();i<len;i++){
+						var xl:XML = node.elements()[i];
+						var vo:SmallPicVo = picList[String(xl.@url)];						
+						if(vo){
+							xl.@x = vo.x;
+							xl.@y = vo.y;
+							xl.@width = vo.width;
+							xl.@height = vo.height;
+							xl.@url = vo.fileUrl;							
+						}
+					}
+				}
+			}
+			
+			protected function exportBtn_clickHandler(event:CloseEvent):void
+			{
+				if(Alert.YES!=event.detail)return;
+				if(resTree.selectedItem==null || resTree.selectedItem.name()!="bigPic"){
+					Alert.show("请选择要导出的资源节点");
+					return;
+				}
+				
+				var bigPicUrl:String = resTree.selectedItem.@url;
+				var bigPicFile:File =  new File(bigPicUrl);
+				var fileName:String = bigPicFile.name.replace(".png","");
+				var exists:Boolean = bigPicFile.exists;
+				bigPicFile=null;
+				var index:int= (resTree.selectedItem as XML).childIndex();				
+				if(exists || changeResBigPicNameDic[index]!=undefined){
+					if(changeResBigPicNameDic[index]!=undefined){
+						fileName = changeResBigPicNameDic[index];
+					}
+					GuiFileManger.instance.startUpdate(URL_SMALLPIC_CONFIG+fileName+".xml",resTree.selectedItem as XML);
+					GuiFileManger.instance.dispatcher.addEventListener(GuiFileManger.GUI_UPDATE_COMPLETE,exportBigConfig);
+					changeResBigPicNameDic[index]=undefined;
+				}else{					
+					exportBigConfig(null);
+				}
+			}
+			
+			private function exportBigConfig(e:Event):void{
+				var fs:FileStream = new FileStream();
+				var selectBigName:String = (resTree.selectedItem as XML).@name;
+
+				var flag:Boolean = exportXmlConfig(resTree.selectedItem as XML);
+				if(flag){
+					Alert.show("导出成功");
+				}		
+				
+				if(curPic){
+					var test:PNGEncoder= new PNGEncoder();
+					var bin:ByteArray = test.encode(curPic.bitmapData);
+					fs.open(new File(URL_BIGPIC+selectBigName+".png"),FileMode.WRITE);
+					fs.writeBytes(bin,0,bin.bytesAvailable);
+					fs.close();
+					var bigUrl:String = URL_BIGPIC+selectBigName+".png";
+					bigUrl = bigUrl.toLocaleLowerCase();
+					bigUrl = bigUrl.replace(/\\/g,"/");
+					var ob:* = DeltaXTextureManager.instance.createTexture(bigUrl);
+					DeltaXTextureManager.instance.unregisterTexture(ob);
+				}
+			}
+			
+			public function exportXmlConfig(parentXml:XML):Boolean{
+				var result:Boolean = ExportManager.instance.exportPicConfig(parentXml);
+				return result;
+			}
+			
+			protected function error(event:IOErrorEvent):void
+			{
+				trace(event.text);
+			}
+			
+			protected function resTree_keyUpHandler(event:KeyboardEvent):void
+			{
+				if(event.keyCode==Keyboard.DELETE){
+					if(resTree.selectedItem && resTree.selectedItem.name()!="bigPic"){
+						Alert.show("确定要删除"+resTree.selectedItem.@name+"吗?","",Alert.YES|Alert.NO,null,deleteOnePic);
+					}else{
+						Alert.show("确定要删除"+resTree.selectedItem.@name+"吗?","",Alert.YES|Alert.NO,null,deleteBigPic);
+					}
+				}
+			}
+			
+			private function deleteBigPic(event:CloseEvent):void
+			{
+				if(event.detail!=Alert.YES)return;
+				for(var j:int=resTree.selectedItems.length-1;j>=0;j--){ 
+					var index:int = resTree.getItemIndex(resTree.selectedItems[j]);				
+					var item:XML = resTree.selectedItems[j] as XML;				
+					resTree.dataDescriptor.removeChildAt(item.parent(),
+							item,item.childIndex(),resTree.dataProvider);
+				}
+			}
+			
+			private function deleteOnePic(event:CloseEvent):void
+			{
+				if(event.detail==Alert.YES){
+					var vo:SmallPicVo = picList[String(resTree.selectedItem.@url)];
+					var arect:Rectangle = new Rectangle(vo.x,vo.y,vo.width,vo.height);
+					var result:String = GuiFileManger.instance.checkIsBeCall({rect:arect,url:vo.parent.url});
+					if(result==""){
+						disposeSmallPicVo(resTree.selectedItem.@url);
+						removeTreeNode();
+					}else{
+						Alert.show(result+"不可删除");
+					}
+				}
+			}
+			
+			private function disposeSmallPicVo(key:String):void{
+				var vo:SmallPicVo = picList[key];
+				if(vo){
+					if(vo.bitmap && curPic){
+						//vo.bitmap.parent.removeChild(vo.bitmap);
+						curPic.bitmapData.fillRect(new Rectangle(vo.x-1,vo.y-1,vo.width+2,vo.height+2),0xffffff);
+					}
+					delete picList[key];
+					dispatchEvent(new Event(UDPATE_RESOURCE_DATA));
+				}
+			}
+			
+			private function removeTreeNode():void{
+				var index:int = resTree.getItemIndex(resTree.selectedItem);
+				if(resTree.selectedItem.name()=="smallPic"){
+					var item:XML = resTree.selectedItem as XML;
+					resTree.dataDescriptor.removeChildAt(item.parent(),
+						item,item.childIndex(),resTree.dataProvider);
+				}
+			}
+			
+			protected function resTree_itemClickHandler(event:Event):void
+			{
+				clearCurRes();
+				var xl:XML = resTree.selectedItem as XML;
+				if(xl && xl.name()=="bigPic"){
+					//SortAPic();
+					if(ResUIData.bigPicList[String(xl.@url)]){
+						curPic = ResUIData.bigPicList[String(xl.@url)];
+						curRes.addChild(curPic);
+						SIZE.x = int(xl.@width);
+						SIZE.y = int(xl.@height);
+						updateCurRes(xl.@width,xl.@height);
+						inciseBitmap(ResUIData.bigPicList[String(xl.@url)],String(xl.@url));
+					}
+				}
+				
+				if(xl && xl.name()=="smallPic"){
+					if(picList[String(xl.@url)]){
+						var bitmap:Bitmap = picList[String(xl.@url)].bitmap;
+						if(bitmap){
+							curRes.addChild(bitmap);
+						}
+					}
+				}
+			}
+
+			[Bindable]
+			public function get resData():XMLListCollection
+			{
+				return _resData;
+			}
+
+			public function set resData(value:XMLListCollection):void
+			{
+				_resData = value;
+			}
+
+			public static function get instance():ReousrceManagerUI
+			{
+				if(_instance==null){
+					_instance = new ReousrceManagerUI();					
+				}
+				return _instance;
+			}			
+			
+			private function clearCurRes():void
+			{
+				while(curRes.numChildren>0){
+					curRes.removeChildAt(0);
+				}
+			}
+			
+			//更新大图区域
+			private function updateCurRes(w:int,h:int):void{
+				curRes.graphics.clear();
+				curRes.graphics.lineStyle(D,0x00ff00);
+				curRes.graphics.drawRect(0,0,w+D,h+D);				
+				curRes.graphics.endFill();
+				showUI.width = w+3*D;
+				showUI.height = h+3*D;	
+			}
+		
+			
+			protected function titlewindow1_addedToStageHandler(event:Event):void
+			{
+				updateTreeView();
+			}
+			
+		
+			
+			protected function realignBtn_clickHandler(event:MouseEvent):void
+			{
+				if(!isSelectPic())return;				
+				SortAPic(curPic);
+				var tmp:*  =resData.source.toString();
+				updateTreeNode();
+				trace(resData.source.toString()==tmp);				
+			}
+			
+			private function isSelectPic():Boolean{
+				if(resTree.selectedItem==null || resTree.selectedItem.name()!="bigPic"){
+					Alert.show("请选中大图操作");
+					return false;
+				}
+				return true;
+			}
+			
+			protected function reloadBtn_clickHandler(event:MouseEvent):void
+			{
+				var selectIndex:int = resTree.selectedIndex;
+				_resData = null;
+				picList = new Dictionary();
+				ResUIData.releaseBigPic();
+				loadUIBigConfig();
+				resTree.selectedIndex = selectIndex;
+				setTimeout(function():void{resTree_itemClickHandler(null);},500);
+			}
+			
+			//修改资源
+			protected function alterBtn_clickHandler(event:MouseEvent):void
+			{
+				if(!isSelectPic()) return;
+				setPicNameDialog.clickFun = callbackAlterPicName;
+				setPicNameDialog.x = this.x+(this.width - setPicNameDialog.width)/2;
+				setPicNameDialog.y = this.y+(this.height- setPicNameDialog.height)/2;								
+				setPicNameDialog.picName = String(resTree.selectedItem.@name);
+				PopUpManager.addPopUp(setPicNameDialog,this,true);
+			}
+			
+			private var changeResBigPicNameDic:Dictionary = new Dictionary();
+			private function callbackAlterPicName(e:MouseEvent):void{
+//				if(SIZE.x>setPicNameDialog.picSizeW){
+//					Alert.show("只能扩大图片尺寸");
+//					return;
+//				}
+				SIZE.x = setPicNameDialog.picSizeW;
+				SIZE.y = setPicNameDialog.picSizeH;
+				updateCurRes(SIZE.x,SIZE.y);
+				var bmd:BitmapData = new BitmapData(SIZE.x,SIZE.y,true,0xFFFFFF);
+				bmd.copyPixels(curPic.bitmapData,curPic.bitmapData.rect,new Point);
+				curPic.bitmapData = bmd;
+				var tmps:String = BigPicVo.decUrl(String(resTree.selectedItem.@url));
+				ResUIData.bigPicList[tmps] = curPic;
+				resTree.selectedItem.@width = SIZE.x;
+				resTree.selectedItem.@height = SIZE.y;
+				var index:int= (resTree.selectedItem as XML).childIndex();
+				if(setPicNameDialog.picName!=String(resTree.selectedItem.@name)){
+					changeResBigPicNameDic[index] = String(resTree.selectedItem.@name);
+				}
+				resTree.selectedItem.@name = setPicNameDialog.picName;
+				resTree.selectedItem.@url = URL_BIGPIC+setPicNameDialog.picName.toLocaleLowerCase()+".png";
+				PopUpManager.removePopUp(setPicNameDialog);
+			}
+			
+			protected function resTree_dragDropHandler(event:DragEvent):void
+			{
+				var ob:Object = event.dragSource.dataForFormat(event.dragSource.formats[0]);					
+			}
+			
+			//=======================================拖拉操作==================================================
+			private var draggedItems:Array = null;
+			
+			//当用户在拖动操作过程中将鼠标移动到某个组件所处的位置时，由该组件分派
+			private function onDragEnter( event:DragEvent ) : void
+			{
+				event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+				
+				var ds:DragSource = event.dragSource;
+				var items:Array = ds.dataForFormat("treeItems") as Array;
+				if (items != null && items.length > 0 && (items[0] is XML))
+					draggedItems = items;
+				
+				DragManager.acceptDragDrop(UIComponent(event.currentTarget));
+			}
+			
+			private function onDragOver( event:DragEvent ) : void
+			{
+				event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+				
+				resTree.selectedIndex = resTree.calculateDropIndex(event);
+				var node:XML = resTree.selectedItem as XML;
+				
+				if(resTree.openItems){
+					for(var j:int=0;j<resTree.openItems.length;j++){
+						if(resTree.openItems[j])					
+							resTree.expandChildrenOf(resTree.openItems[j],false);
+					}
+				}
+				
+				if (String(node.parent().@name)==String(draggedItems[0].parent().@name))
+				{
+					DragManager.showFeedback(DragManager.NONE);
+					return;
+				}
+				
+				DragManager.showFeedback(DragManager.MOVE);
+			}
+			
+			//用户在放置目标上释放鼠标时由放置目标分派
+			private function onDragDrop( event:DragEvent ) : void
+			{
+				event.preventDefault();
+				event.currentTarget.hideDropFeedback(event);
+				
+				resTree.selectedIndex = resTree.calculateDropIndex(event);
+				var node:XML = resTree.selectedItem as XML;
+				lastSelectItem = node;
+				if(node.parent().name()=="root" && draggedItems[0].parent()!=undefined && String(node.@name)!=String(draggedItems[0].parent().@name)){
+					Alert.show("确定要移动图标，很冒险的",'',Alert.YES|Alert.NO,null,toDragDropPics);
+				}
+			}
+			
+			private function onDragComplete( event:DragEvent ) : void
+			{
+				resTree.selectedIndex = -1;
+			}
+			
+			private var lastSelectItem:XML;
+			private function toDragDropPics(event:CloseEvent):void{
+				if(event.detail==Alert.NO)return;
+				var node:XML = lastSelectItem;
+				if(!DragPicManager.instance.checkIsFull(draggedItems,node)){
+					var resParent:XML = draggedItems[0].parent().copy();
+					for each(var _draggedItem:XML in draggedItems){
+						var addToIndex:int = _draggedItem.childIndex();
+						resTree.dataDescriptor.removeChildAt(_draggedItem.parent(),_draggedItem,addToIndex);
+						node.appendChild(_draggedItem);						
+					}						
+					//补充小图内存空间
+					var aurl:String=String(node.@url);
+					inciseBitmap(ResUIData.bigPicList[aurl],aurl);
+					aurl = String(resParent.@url);
+					inciseBitmap(ResUIData.bigPicList[aurl],aurl);
+					//正式开始移动
+					DragPicManager.instance.dragPicXML(draggedItems,node,resParent);
+				}
+			}
+			
+			//==========================================拖拉操作_end===============================================
+			private var tmpRect:Rectangle = new Rectangle();			
+			protected function showUI_mouseMoveHandler(event:MouseEvent):void
+			{
+				showUI.toolTip="";
+				if(resTree.selectedItem==null)return;												
+				var xl:XML = resTree.selectedItem as XML;				
+				for each(var axl:XML in xl.elements()){					
+					tmpRect.setTo(axl.@x,axl.@y,axl.@width,axl.@height);
+					if(tmpRect.contains(event.localX,event.localY)){
+						showUI.toolTip = axl.@name;				
+						smallUrlId.text = getIconUrl(xl,axl);
+						smallKeyUrlId.text = getIconUrl2(xl,axl);
+						Clipboard.generalClipboard.setData(ClipboardFormats.TEXT_FORMAT,smallUrlId.text);
+						break;
+					}					
+				}				 				
+			}
+			
+			private function getIconUrl(pXl:XML, axl:XML):String
+			{
+				tmpRect.setTo(axl.@x,axl.@y,axl.@width,axl.@height);
+				var xml:XML = <Frame/>;
+				xml.@FileName=String(pXl.@name)+".png";
+				xml.@left = tmpRect.left;
+				xml.@top = tmpRect.top;
+				xml.@right = tmpRect.right;
+				xml.@bottom = tmpRect.bottom;
+				return xml.toXMLString();
+			}
+			
+			private function getIconUrl2(pXl:XML, axl:XML):String
+			{
+				tmpRect.setTo(axl.@x,axl.@y,axl.@width,axl.@height);
+				var xml:XML = <data/>;
+				xml.@key=String(pXl.@name);
+				xml.@x = tmpRect.x;
+				xml.@y = tmpRect.y;
+				xml.@width = tmpRect.width;
+				xml.@height = tmpRect.height;
+				return xml.toXMLString();
+			}
+			
+			protected function exportCombox_closeHandler(event:DropdownEvent):void
+			{
+				if(!exportCombox.selectedItem)return;
+				if(!isSelectPic())return;
+				switch(exportCombox.selectedItem.index)
+				{
+					case 1:Alert.show('确定要导出选中的大图吗?','',Alert.YES|Alert.NO,null,exportBtn_clickHandler);break;
+					case 2:ExportManager.instance.exportFrame(resTree.selectedItem as XML);Alert.show("导出成功!");break;
+					case 3:	ExportManager.instance.exportKey(resTree.selectedItem as XML);Alert.show("导出成功!");break;
+				}
+			}
+			
+			
+			
+			protected function checkquote_clickHandler(event:MouseEvent):void
+			{
+				if(resTree.selectedItem==null || resTree.selectedItem.name()!="bigPic"){
+					Alert.show("请选中大图操作");
+					return;
+				}
+				var reStr:String="";
+				reStr=QuoteGuiFileManager.instance.startCheck(String(resTree.selectedItem.@url));
+				if(reStr!=""){
+					Alert.show(reStr,"本图索引文件列表");
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<s:HGroup gap="20" top="4" left="2">		
+		<s:Group width="248" height="528">
+			<s:Button label="创建资源" id="newBtn" click="newBtn_clickHandler(event)"/>
+			<s:Button id="alterBtn" x="1" y="24" label="修改资源" click="alterBtn_clickHandler(event)"/>
+			<!--<s:Button label="导入图片" id="importBtn0" click="importBtn_clickHandler(event)" x="84" />-->
+			<mx:ComboBox id="importCombox" x="74" y="0" width="91"
+						 close="importBtn_clickHandler(event)" dataProvider="{importPicMenu}"
+						 labelField="label"/>
+			<s:Button id="exportBtn" x="171" y="0" width="68" label="导出大图"
+					  click="{Alert.show('确定要导出选中的大图吗?','',Alert.YES|Alert.NO,null,exportBtn_clickHandler);}" visible="false"/>
+			<mx:ComboBox id="exportCombox" x="171" y="0" width="68" dataProvider="{exportMenu}" labelField="label" close="exportCombox_closeHandler(event)"/>
+			<mx:Tree id="resTree" x="3" y="75" width="229" height="449"
+					 itemClick="resTree_itemClickHandler(event)" keyUp="resTree_keyUpHandler(event)"
+					 dragEnabled="true" dropEnabled="true"
+					 allowMultipleSelection="true"
+					 dragDrop="onDragDrop(event)"
+					 dragOver="onDragOver(event)"
+					 dragComplete="onDragComplete(event)"
+					 dragEnter="onDragEnter(event)"
+					 change="resTree_itemClickHandler(event)"
+					 labelField="@name" showRoot="false" toolTip="选中后按Delete可删除"/>
+			<s:Button id="realignBtn" x="172" y="24" width="50" label="重排" click="realignBtn_clickHandler(event)"/>			
+			<s:Button id="reloadBtn" x="84" y="24" width="68" label="重新载入" click="reloadBtn_clickHandler(event)"/>
+			<s:Button id="checkquote" x="172" y="48" width="50" label="索引" click="checkquote_clickHandler(event)"/>
+		</s:Group>
+		<s:Scroller width="530" height="534" >
+			<s:Group>
+				<mx:UIComponent id="showUI" x="0" y="0" width="100%" height="100%" click="showUI_mouseMoveHandler(event)"/>
+			</s:Group>
+		</s:Scroller>
+	</s:HGroup>
+	<s:TextInput id="smallUrlId" x="10" y="546" width="474" height="27" fontSize="12"/>
+	<s:TextInput id="smallKeyUrlId" x="10" y="583" width="474" height="27" fontSize="12"/>
+</s:TitleWindow>

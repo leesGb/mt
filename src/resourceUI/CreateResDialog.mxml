@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="270" height="148" title="添加新资源"
+		 close="titlewindow1_closeHandler(event)"
+		>
+	<fx:Declarations>
+		<fx:XML id="sizeXml"  xmlns="">
+			<root>
+				<n sizeW="512" sizeH="512">512*512</n>
+				<n sizeW="1024" sizeH="512">1024*512</n>
+				<n sizeW="512" sizeH="1024">512*1024</n>
+				<n sizeW="1024" sizeH="1024">1024*1024</n>
+			</root>
+		</fx:XML>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.XMLListCollection;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			public var picName:String="";
+			public var picSizeW:int=512;
+			public var picSizeH:int=512;
+			public var clickFun:Function;
+			
+			protected function canelBtn_clickHandler(event:MouseEvent):void
+			{
+				
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function okBtn_clickHandler(event:MouseEvent):void
+			{		
+				picSizeW = resSizeList.selectedItem.@sizeW;
+				picSizeH = resSizeList.selectedItem.@sizeH;
+				picName = resNameInput.text;
+				if(clickFun!=null){
+					clickFun(event);
+				}
+				PopUpManager.removePopUp(this);
+			}				
+			
+			protected function resNameInput_removedFromStageHandler(event:Event):void
+			{
+				picName = "";
+			}
+			
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				picName = "";
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function resNameInput_addedHandler(event:Event):void
+			{							
+				resNameInput.text = picName;
+				resNameInput.setFocus();
+			}
+			
+			protected function resSizeList_creationCompleteHandler(event:FlexEvent):void
+			{
+				resSizeList.selectedIndex=0;				
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<s:Label x="46" y="11" width="62" height="20" text="资源尺寸:" verticalAlign="middle"/>
+	<s:Label x="47" y="46" width="62" height="20" text="资源名字:" verticalAlign="middle"/>	
+	<s:DropDownList id="resSizeList" dataProvider="{new XMLListCollection(sizeXml.children())}" x="107" y="10" width="115" creationComplete="resSizeList_creationCompleteHandler(event)"/>
+	<s:TextInput id="resNameInput" x="107" y="45" width="115" restrict="a-z A-Z 0-9"
+				 text="abc"
+				 addedToStage="resNameInput_addedHandler(event)"
+				 removedFromStage="resNameInput_removedFromStageHandler(event)"/>
+	<s:Button id="okBtn" x="47" y="74" label="确定" click="okBtn_clickHandler(event)"/>
+	<s:Button id="canelBtn" x="153" y="74" label="取消" click="canelBtn_clickHandler(event)"/>
+	
+</s:TitleWindow>

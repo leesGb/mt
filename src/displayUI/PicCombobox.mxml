@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  width="243" creationComplete="combobox1_creationCompleteHandler(event)">
+	<fx:Metadata>
+		[Event(name="SelectedPicURL", type="flash.events.Event")]
+	</fx:Metadata>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->	
+	</fx:Declarations>	
+	<fx:Script>
+		<![CDATA[
+			import core.TextureFileManager;
+			import deltax.gui.base.DisplayImageInfo;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.XMLListCollection;
+			import mx.events.DropdownEvent;
+			import mx.events.FlexEvent;
+			
+			import resourceUI.ReousrceManagerUI;
+			import resourceUI.SmallPicVo;		
+			[Bindable]
+			private var firstData:XMLListCollection;
+			[Bindable]
+			private var secondData:XMLListCollection;
+			protected function combobox1_creationCompleteHandler(event:FlexEvent):void
+			{				
+				
+				if(firstId.dataProvider.length==0){
+					updateData(null);
+				}
+				ReousrceManagerUI.instance.addEventListener(ReousrceManagerUI.UDPATE_RESOURCE_DATA,updateData);
+			}
+			
+			protected function updateData(event:Event):void
+			{
+//				var arr:Array = [];
+//				for each(var vo:SmallPicVo in ReousrceManagerUI.picList){
+//					arr.push(vo);
+//				}
+//				arr.sortOn("fileName");
+//				arrData = new ArrayCollection(arr);
+				secondId.dataProvider = null;
+				if(ReousrceManagerUI.instance.resData){
+					var xmlList:XMLList = ReousrceManagerUI.instance.resData.source;
+					firstData = new XMLListCollection(xmlList.elements("bigPic"));
+					firstId.dataProvider = firstData;
+					firstId.selectedIndex=0;
+					
+					if(firstId.selectedItem){
+						var aname:String = String(firstId.selectedItem.@name);
+						secondData = new XMLListCollection(firstId.selectedItem.children());
+						secondId.dataProvider = secondData;
+					}
+				}
+				
+			}
+			
+			protected function firstId_closeHandler(event:DropdownEvent):void
+			{
+				if(!firstId.dataProvider)return;
+				if(firstId.selectedItem){
+					var aname:String = String(firstId.selectedItem.@name);
+					secondId.dataProvider = firstId.selectedItem.children();
+				}
+			}
+			
+			protected function secondId_closeHandler(event:DropdownEvent):void
+			{
+				if(!secondId.dataProvider)return;
+				dispatchEvent(new Event("SelectedPicURL"));
+			}
+			
+			/**
+			 * 让大小图下拉框反向选中对应的图
+			 */
+			public function selectPic(info:DisplayImageInfo):void{
+				if(!ReousrceManagerUI.instance.resData)return;
+				if(firstId.dataProvider.length==0){
+					updateData(null);
+				}
+				if(TextureFileManager.getInstance().urls.length==0 || TextureFileManager.getInstance().urls.length<info.textureIndex){
+					return;
+				}
+				var bigPic:String = TextureFileManager.getInstance().urls[info.textureIndex];
+				var smallPic:String;
+				var xl:XML;
+				var xmlList:XMLList = ReousrceManagerUI.instance.resData.source;
+				var xml:XMLList;// = xmlList.bigPic.(@url==bigPic);
+				for each(var ml:XML in xmlList.elements()){
+					if(String(ml.@url).toLocaleLowerCase()==bigPic.toLocaleLowerCase()){
+						xml = XMLList(ml);
+						break;
+					}
+				}
+				xml = xml!=null?xml.children():null;
+				for each(xl in xml){
+					if(int(xl.@x)==info.textureRect.x && int(xl.@y)==info.textureRect.y){
+						smallPic = String(xl.@name);
+						break;
+					}
+				}
+				
+				var ad:XMLListCollection
+				ad = firstId.dataProvider as XMLListCollection;
+				if(ad){
+					for(var j:int=0,len:int=ad.length;j<len;j++){
+						xl = ad.getItemAt(j) as XML;
+						if(String(xl.@url).toLocaleLowerCase()==bigPic.toLocaleLowerCase()){
+							firstId.selectedIndex = j;						
+							var aname:String = String(firstId.selectedItem.@name);				
+							secondData.source = firstId.selectedItem.children();							
+							break;
+						}
+					}
+				}
+				
+				ad = secondId.dataProvider as XMLListCollection;
+				if(ad){
+					for(j=0,len=ad.length;j<len;j++){
+						xl = ad.getItemAt(j) as XML;
+						if(String(xl.@name)==smallPic){							
+							secondId.selectedIndex = j;
+							break;
+						}
+					}
+				}
+				//bigPic:String,smallPic:String
+			}
+						
+		]]>
+	</fx:Script>	
+	<s:HGroup>
+		<s:Label height="19" text="大图:" verticalAlign="middle"/>
+		<mx:ComboBox id="firstId" width="196" close="firstId_closeHandler(event)"
+					 labelField="@name"/>
+	</s:HGroup>
+	<s:HGroup>			
+		<s:Label height="19" text="小图:" verticalAlign="middle"/>
+		<mx:ComboBox id="secondId" width="197" close="secondId_closeHandler(event)"
+					 labelField="@name"/>
+	</s:HGroup>
+</s:VGroup>
+

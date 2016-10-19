@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="100%" height="373">
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+		<s:ArrayCollection id="dialData">
+			<fx:Object label="九宫模式" index="0"/>
+			<fx:Object label="九宫" index="1"/>
+			<fx:Object label="左中右" index="2"/>
+			<fx:Object label="上中下" index="3"/>
+		</s:ArrayCollection>
+		<s:ArrayCollection id="otherData">
+			<fx:Object label="操作" index="0"/>
+			<fx:Object label="调整" index="4"/>
+			<fx:Object label="全删除" index="1"/>
+			<fx:Object label="全复制" index="2"/>
+			<fx:Object label="全粘贴" index="3"/>
+		</s:ArrayCollection>
+		
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.DropdownEvent;
+			
+			import core.TextureFileManager;
+			
+			import deltax.gui.base.ComponentDisplayStateInfo;
+			import deltax.gui.base.DisplayImageInfo;
+			import deltax.gui.base.style.LockFlag;
+			
+			import resourceUI.ReousrceManagerUI;
+			
+			import utils.ClassUtil;
+			import utils.ClipBoardManager;
+			import utils.CommonUtil;
+			import utils.DialAdapter;
+			
+			public var _info:ComponentDisplayStateInfo;
+			private var cells:Vector.<DisplayImageInfoView> = new Vector.<DisplayImageInfoView>();
+			public function set info(value:ComponentDisplayStateInfo):void{
+				_info = value;
+				updateData();
+			}
+			public function get info():ComponentDisplayStateInfo{
+				return _info;
+			}
+			
+			public function set type(value:uint):void{
+				typeId.text = ClassUtil.getConstNameByValue(value,ClassUtil.SUB_PACKAGE+"SubCtrlStateType");
+				//typeId.text = SubCtrlStateType.GetNameByType(value);
+			}			
+			
+			public function updateData():void{
+				this.fontColorId.text = CommonUtil.toBin(_info.fontColor);
+				this.fontEdgeColorId.text = CommonUtil.toBin(info.fontEdgeColor);
+				this.imageInfoNumId.text = info.imageList.imageInfos.length+"";
+				contentId.removeAllElements();				
+				cells = new Vector.<DisplayImageInfoView>();
+				var yT:Number = 0;
+				for(var i:int = 0;i<info.imageList.imageInfos.length;i++){
+					var view:DisplayImageInfoView = new DisplayImageInfoView();
+					view.info = info.imageList.imageInfos[i];
+					trace((info.imageList.imageInfos[i] as DisplayImageInfo).wndRect);
+					view.deletaCallBack = deletaCallBack;
+					view.y = yT;
+					yT += view.height;					
+					contentId.addElement(view);
+					cells[i] = view;
+				}
+				//this.height = yT;
+			}
+			
+			private function deletaCallBack(view:DisplayImageInfoView):void{
+				var diinfo:DisplayImageInfo = view.info;
+				var idx:int = info.imageList.imageInfos.indexOf(diinfo);
+				if(idx != -1){
+					info.imageList.imageInfos.splice(idx,1);
+				}
+				
+				updateData();
+			}
+			
+			private function onChangeHandler(event:Event):void{
+				info.fontColor = CommonUtil.parseBin(fontColorId.text);
+				info.fontEdgeColor = CommonUtil.parseBin(fontEdgeColorId.text);
+			}
+			private function addImageInfoHandler(event:Event):void{
+				var newImage:DisplayImageInfo = new DisplayImageInfo();
+				newImage.lockFlag = LockFlag.LEFT | LockFlag.TOP;
+				newImage.color = 0xFFFFFFFF;
+				info.imageList.imageInfos.push(newImage);
+				updateData();
+			}
+			
+			protected function deleteAllHanlder(event:MouseEvent):void
+			{
+				if(info){
+					info.imageList.imageInfos.splice(0,info.imageList.imageInfos.length);
+				}
+				updateData();
+			}
+			
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				for each(var imgInfo:DisplayImageInfo  in info.imageList.imageInfos){
+					if((imgInfo.lockFlag & LockFlag.LEFT) && (imgInfo.lockFlag & LockFlag.RIGHT)){
+						imgInfo.textureRect.x +=1;
+						imgInfo.textureRect.right -=2;
+					}
+					if((imgInfo.lockFlag & LockFlag.TOP) && (imgInfo.lockFlag & LockFlag.BOTTOM)){
+						imgInfo.textureRect.y +=1;
+						imgInfo.textureRect.bottom -=2;
+					}
+				}
+				updateData();
+			}
+			
+			protected function dialModeId_closeHandler(event:DropdownEvent):void
+			{
+				if(dialModeId.selectedIndex<1)return;
+				if(!ReousrceManagerUI.instance.resData){
+					Alert.show("还没导入资源，请打开资源编辑器");
+					return;
+				}
+				if(!info) return;
+				if(!info.imageList) {
+					Alert.show("没图片");
+					return;
+				}
+				if(!(info.imageList.imageInfos.length==3 || info.imageList.imageInfos.length==9)){
+					Alert.show("还不满足九宫格条件,3或9张图");
+					return;
+				}								
+				var arr:Array = getPicName;
+				var result:Boolean = DialAdapter.setup(info.imageList,arr,dialModeId.selectedItem.index);				
+				if(result){
+					DialAdapter.updateWndRect(info.imageList);
+					var ar:Rectangle = DialAdapter.getUnionRect(info.imageList);
+					if(synWindowSizeId.selected){
+						PropertiesView.instance.setPropertySize(ar.width,ar.height);
+					}
+					updateData();
+				}else{
+					Alert.show("图片文件名规则不对应，可以到图片配置表修改");
+				}
+				//DialAdapter.updateWndRect(info.imageList);
+			}
+			
+			private function get getPicName():Array{
+				var arr:Array=[];
+				for each(var disInfo:DisplayImageInfo in info.imageList.imageInfos){
+					var str:String = TextureFileManager.getInstance().urls[disInfo.textureIndex];
+					var xmlList:XMLList = ReousrceManagerUI.instance.resData.source;
+					var xml:XMLList;
+					for each(var ml:XML in xmlList.elements()){
+						if(String(ml.@url).toLocaleLowerCase()==str.toLocaleLowerCase()){
+							xml = XMLList(ml);
+							break;
+						}
+					}
+					//var xml:XMLList = xmlList.bigPic.(@url==str);
+					xml = xml!=null?xml.children():null;
+					for each(var xl:XML in xml){
+						if(int(xl.@x)==disInfo.textureRect.x && int(xl.@y)==disInfo.textureRect.y){
+							//picNames序列和imaeInfo序列一致
+							arr[info.imageList.imageInfos.indexOf(disInfo)] = (String(xl.@name));
+							break;
+						}
+					}
+				}
+				
+				return arr;
+			}
+			
+			protected function otherId_closeHandler(event:DropdownEvent):void
+			{
+				function deleteFun(e:CloseEvent):void{
+					if(e.detail==Alert.YES){
+						deleteAllHanlder(null);
+					}
+				}
+				switch(otherId.selectedItem.index)
+				{
+					case 1:Alert.show("确定要删除",'',Alert.YES|Alert.NO,null,deleteFun);	break;//全部删除
+					case 2:ClipBoardManager.instance.copy(ClipBoardManager.DisplayImageInfoList,info.imageList.imageInfos);break;//全部复制
+					case 3://全部粘贴
+						info.imageList.imageInfos.splice(0,info.imageList.imageCount);
+						var list:Vector.<DisplayImageInfo> = ClipBoardManager.instance.paste(ClipBoardManager.DisplayImageInfoList) as Vector.<DisplayImageInfo>;
+						for each(var data:* in list){
+							info.imageList.imageInfos.push(data);
+						}
+						updateData();
+						break;
+					case 4://同步宽高
+						var disInfo:DisplayImageInfo = info.imageList?info.imageList.getImage(0):null;
+						if(disInfo){
+							var rect:Rectangle = disInfo.wndRect;
+							PropertiesView.instance.setPropertySize(rect.width,rect.height);
+						}
+						break;
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<s:Label x="10" y="40" text="fontColor"/>
+	<s:TextInput id="fontColorId" x="97" y="33" change="onChangeHandler(event)"/>
+	<s:Label x="10" y="69" text="fontEdgeColor"/>
+	<s:TextInput id="fontEdgeColorId" x="97" y="63" change="onChangeHandler(event)"/>
+	<s:Label x="10" y="99" text="m_imageInfos"/>
+	<mx:HRule x="3" y="1" width="347" height="4" strokeWidth="3" strokeColor="0x000000"/>
+	<s:Label id="typeId" x="94" y="9" color="#FB2626" fontSize="16" text="type"/>
+	<s:Button x="99" y="93" width="50" label="add" click="addImageInfoHandler(event)"/>
+	<s:Button x="251" y="93" width="79" label="deleteAll" click="deleteAllHanlder(event)" visible="false"/>
+	<mx:ComboBox id="otherId" x="251" y="93" width="90" close="otherId_closeHandler(event)"
+				 dataProvider="{otherData}"/>
+	<s:Scroller x="2" y="119" width="341" height="248">
+		<s:VGroup width="100%" height="100%"  id="contentId">
+		</s:VGroup>
+	</s:Scroller>
+	<s:Label x="10" y="13" text="DisplayState:"/>
+	<s:Label x="169" y="99" text="贴图数"/>
+	<s:TextInput id="imageInfoNumId" x="213" y="93" width="30" enabled="false" text="0"/>
+	<s:Button x="269" y="65" width="61" label="九宫格" click="button1_clickHandler(event)" visible="false"/>
+	<mx:ComboBox id="dialModeId" x="237" y="64" width="80" close="dialModeId_closeHandler(event)"
+				 dataProvider="{dialData}"/>
+	<s:CheckBox x="322" y="65" id="synWindowSizeId" selected="true" toolTip="是否同步宽高"/>
+</s:Group>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<data>
+<IconID ID ="1000" tooltip ="" >
+	<!-- 动画 -->
+	<Frame FileName="mainview4.png" left="3" top="5" right="57" bottom="59"/>
+</IconID>
+<IconID ID ="1001" tooltip ="" >
+	<Frame FileName="mainview4.png" left="127" top="5" right="181" bottom="59"/>
+</IconID>
+<IconID ID ="1002" tooltip ="" >
+	<Frame FileName="mainview4.png" left="3" top="5" right="57" bottom="59"/>
+	<Frame FileName="mainview4.png" left="127" top="5" right="181" bottom="59"/>
+</IconID>
+</data>

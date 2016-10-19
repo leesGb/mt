@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+	<!--
+		以下组件类型来自：WindowClassManager.as
+		NORMAL_WND		=	CGWnd
+		BUTTON			=	CGButton
+		CHECK_BUTTON	=	CGCheckButton
+		COMBOBOX		=	CGComboBox
+		EDIT			=	CGEdit
+		TABLE			=	CGListCtrl
+		MESSAGE_BOX		=	CGMsgBox
+		PROGRESS_BAR	=	CGProgress
+		RICH_TEXTAREA	=	CGRichWnd
+		SCROLL_BAR		=	CGScrollBar
+		TREE 			=	CGTreeCtrl
+	 -->
+	<!-- 工程UI图片资源目录 -->
+	<ProjectFLAPath>E:\project\game\client\YYIconsArts\</ProjectFLAPath>
+	<subRoot>
+	<m label="Button">
+		<n label="CGButton" className="CGButton" guiName="CGButton" />
+		<n label="CloseButton" className="CGButton" guiName="close_button" />
+		<n label="CGCheckButton" className="CGCheckButton" guiName="CGCheckButton" />
+		<n label="TabToggleButton" className="CGCheckButton" guiName="panel_tab_btn" />
+	</m>
+	<win label="DeltaXWindow">
+		<n label="空背景" className="CGWnd" guiName="EmptyWnd" />		
+		<n label="面板" className="CGWnd" guiName="panel" />		
+		<n label="面板内背景" className="CGWnd" guiName="panel_inbg" />	
+		<n label="文本背景" className="CGWnd" guiName="text_bg" />
+	</win>
+	<n label="CGComboBox" className="CGComboBox" guiName="CGComboBox" />
+	<n label="CGEdit" className="CGEdit" guiName="CGEdit" />
+	<n label="CGListCtrl" className="CGListCtrl" guiName="list_ctrl" />
+	<n label="道具格子列表" className="ItemTable" guiName="ItemTable" />
+	<n label="CGProgress" className="CGProgress" guiName="CGProgress" />
+	<n label="CGRichWnd" className="CGRichWnd" guiName="CGRichWnd" />
+	<n label="CGScrollBar" className="CGScrollBar" guiName="CGScrollBar" />
+	<n label="CGTreeCtrl" className="CGTreeCtrl" guiName="CGTreeCtrl" />
+	</subRoot>	
+</root>

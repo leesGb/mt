@@ -1,0 +1,7 @@
+<directory_config  Language='CN' LanguageDir='language' readInPackage='1' >	
+	<!--打包资源的packed_data所在目录，不使用上面RootPath节点的值
+	@param resItemNamePrefix 资源url的前缀，加上后才能在打包资源的setting.xml里找到对应的file属性作为key
+	@param packedDataPath packed_data资源包所在的路径
+	-->	
+	<PathInfoForPackage packedDataPath="../../packed_data/" />
+</directory_config>

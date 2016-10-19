@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009"
+					   xmlns:s="library://ns.adobe.com/flex/spark"
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   xmlns:ns1="*"
+					   xmlns:resourceUI="resourceUI.*"
+					   width="1350" height="800" backgroundAlpha="0" backgroundColor="#A1A1A1"
+					   initialize="windowedapplication1_initializeHandler(event)" 
+					   mouseEnabled="false"
+					   addedToStage="windowedapplication1_addedToStageHandler(event)"
+					   creationComplete="windowedapplication1_creationCompleteHandler(event)"
+					   >
+	<fx:Declarations>
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import app.config.AppConfig;
+			import app.update.AppUpdater;
+			
+			import core.CGUIEditorApp;
+			import core.DefaultCreateParam;
+			
+			import deltax.appframe.BaseApplication;
+			import deltax.common.Util;
+			import deltax.common.resource.Enviroment;
+			import deltax.gui.component.DeltaXWindow;
+			import deltax.gui.component.event.DXWndMouseEvent;
+			import deltax.gui.manager.GUIManager;
+			
+			import displayUI.align.AlignMediator;
+			
+			import mx.collections.XMLListCollection;
+			import mx.core.UIComponent;
+			import mx.events.DragEvent;
+			import mx.events.FlexEvent;
+			
+			import utils.FileUtil;
+			
+			private var theApp:CGUIEditorApp;
+			
+			private var baseUIXml:XML;
+			//private var EnvirmentXML:XML;
+			
+			protected function windowedapplication1_creationCompleteHandler(event:FlexEvent):void
+			{
+				Global.rootURL = String(baseUIXml.ProjectFLAPath);//.toLocaleLowerCase();
+				Global.flaPath = Global.rootURL + "fla\\";
+				this.nativeWindow.maximize();
+			}
+			
+			protected function windowedapplication1_initializeHandler(event:FlexEvent):void
+			{		
+				baseUIXml = new XML(FileUtil.readFileString(File.applicationDirectory.url+"etc/baseUIConfig.xml"));
+				//EnvirmentXML = new XML(FileUtil.readFileString(File.applicationDirectory.url+"etc/directory.xml"));
+				//检查更新应用程序
+				var appConfig:AppConfig = new AppConfig();
+				appConfig.loadConfig("app:/AppConfig.xml");
+				var updater:AppUpdater = new AppUpdater(this, appConfig,stage);
+				updater.isExe = true;
+				updater.checkUpdate();	
+								
+				nativeWindow.x = 50;
+				nativeWindow.y = 0;
+				this.showStatusBar = false;
+				initTree();
+				initGame();
+			}
+			
+			private function initTree():void{
+				//DefaultCreateParam.WindowClasss = [];
+				var dataRes:XMLListCollection =new XMLListCollection(XMLList(baseUIXml.subRoot));
+				var tmp:Array=[];
+				for each(var xl:XML in baseUIXml.subRoot.elements()){
+					if(String(xl.name())=="n"){
+						tmp.push(String(xl.@guiName));
+					}else{
+						for each(var xll:XML in xl.elements()){
+							tmp.push(String(xll.@guiName));
+						}
+					}
+				}
+				DefaultCreateParam.guiFileNameList = tmp;
+				uiTree.dataProvider = dataRes;
+				uiTree.validateNow();
+				for(var g:int=0,len:int=uiTree.dataProvider.length;g<len;g++){
+					uiTree.expandChildrenOf(dataRes.getItemAt(g),true);
+				}
+			}
+			
+			private function initGame():void{
+				var cui:UIComponent = new UIComponent();
+				cui.mouseEnabled = false;				
+				var game:CGUIEditorApp = new CGUIEditorApp();
+				
+				cui.addChild(game);
+				game.rootUIComponent = viewContainer;
+				viewContainer.addElement(cui);
+				CGUIEditorApp.instance.properView = properView;
+				CGUIEditorApp.instance.layoutTree = layoutTree;
+				
+				AlignMediator.instance.init(this);
+				AlignMediator.instance.open();
+				
+			}		
+			
+			private function processEvent(e:Event):void{
+				if(e.type.indexOf("mouse")!=-1){
+					if(!viewContainer.getRect(stage).contains(stage.mouseX,stage.mouseY)){
+						e.stopImmediatePropagation();
+					}
+				}
+				if(e.type==Event.RESIZE){
+					e.stopImmediatePropagation();
+					
+					//场景大小变化
+					viewContainer.width = stage.stageWidth - viewContainer.x - properView.width-10;
+					viewContainer.height = stage.stageHeight - stage.y;
+					
+					properView.x = stage.stageWidth - properView.width-10;
+					interGroup.width = viewContainer.width;
+					interGroup.height = viewContainer.height;
+					if(CGUIEditorApp.instance.gameMainPanel && viewContainer.width >0 && viewContainer.height >0){
+						//root，gameMainPanel大小变化。且不影响子对象
+						CGUIEditorApp.instance.gameMainPanel.setSize(viewContainer.width,viewContainer.height,false);
+						GUIManager.instance.rootWnd.setSize(viewContainer.width,viewContainer.height,false);
+					}
+				}
+				
+				if(e.type == KeyboardEvent.KEY_DOWN){
+					var ee:KeyboardEvent = (e as KeyboardEvent);
+					if(ee.ctrlKey){						
+						if(ee.keyCode==Keyboard.S){
+							menuBar.exportHandler(null);
+						}else if(ee.keyCode==Keyboard.Q){
+							menuBar.clearnHandler(null);
+						}else if(ee.keyCode==Keyboard.R){
+							menuBar.importHandler(null);
+						}
+					}
+				}
+			}
+
+			private function viewOnDragDrop(event:Event):void{
+				//trace("a");
+			}
+			private function viewOnDragEnter(event:DragEvent,format:String):void{
+				var obj:Object = event.dragSource.dataForFormat(event.dragSource.formats[0]);				
+				CGUIEditorApp.instance.Addui(obj[0]);
+			}
+					
+			protected function layoutTree_keyUpHandler(event:KeyboardEvent):void
+			{
+				if(event.keyCode==Keyboard.DELETE || event.keyCode==Keyboard.D){					
+					properView.deleteTheWindowBtn.dispatchEvent(new MouseEvent(MouseEvent.CLICK));
+				}else if(event.keyCode==Keyboard.C && event.ctrlKey){
+					menuBar.copyHandler(null);
+				}else if(event.keyCode==Keyboard.V){
+					menuBar.plasterHandler(null);
+				}
+			}
+			
+			protected function windowedapplication1_addedToStageHandler(event:Event):void
+			{
+				stage.addEventListener(TextEvent.TEXT_INPUT, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.DOUBLE_CLICK, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.MOUSE_DOWN, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.MOUSE_UP, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.MIDDLE_MOUSE_DOWN, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.MIDDLE_MOUSE_UP, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.RIGHT_MOUSE_DOWN, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.RIGHT_MOUSE_UP, this.processEvent);
+				//stage.addEventListener(DXWndMouseEvent.MOUSE_MOVE, this.processEvent);
+				stage.addEventListener(DXWndMouseEvent.MOUSE_WHEEL, this.processEvent);
+				stage.addEventListener(KeyboardEvent.KEY_DOWN, this.processEvent);
+				stage.addEventListener(KeyboardEvent.KEY_UP, this.processEvent);
+				stage.addEventListener(Event.SELECT_ALL, this.processEvent);
+				
+				stage.addEventListener(Event.COPY, this.processEvent);
+				stage.addEventListener(Event.PASTE, this.processEvent);
+				stage.addEventListener(Event.CUT, this.processEvent);	
+				stage.addEventListener(Event.RESIZE,this.processEvent);
+				
+				interGroup.addEventListener(KeyboardEvent.KEY_DOWN,keyDownHanlder);
+				interGroup.addEventListener(MouseEvent.CLICK,clickForFocus);
+			}
+			
+			protected function layoutTree_dragCopleteHandler(event:DragEvent):void
+			{
+				var obj:Object = event.dragSource.dataForFormat(event.dragSource.formats[0]);
+				var selectChild:XML = obj[0];
+				var nodeXml:XMLList;
+				var xmlData:XMLList = (layoutTree.dataProvider as XMLListCollection).source;				
+				var j:int=0;
+				
+				nodeXml = getParentByChild(xmlData,selectChild);
+				if(!nodeXml)return;
+				var parentWin:DeltaXWindow = CGUIEditorApp.instance.allwindows[int(nodeXml[0].@value)];				
+				if(!parentWin)return;
+				var len:int;
+				for(var i:int=0,len=nodeXml.children().length();i<len;i++){
+					var aChild:XML = nodeXml.child[i];
+					var index:int = int(aChild.@value);
+					var oneChild:DeltaXWindow = CGUIEditorApp.instance.allwindows[index];									
+					oneChild.visible = false;					
+				}
+				
+				for(var i:int=0,len=nodeXml.children().length();i<len;i++){
+					aChild = nodeXml.child[i];
+					index = int(aChild.@value);
+					oneChild = CGUIEditorApp.instance.allwindows[index];
+					oneChild.visible = true;
+					parentWin.addChild(oneChild);//重新排列					
+				}
+				trace(parentWin.visibleChildBottomMost.name);
+			}
+			
+			
+			
+			private function getParentByChild(source:XMLList,child:XML):XMLList{
+				var result:XMLList=null;				
+				for(var j:int=0,leng:int=source.children().length();j<leng;j++){
+					var axml:XMLList = XMLList(source.children()[j]);					
+					if(axml.children().contains(child)){
+						return axml;
+					}else{
+						 result = getParentByChild(axml,child);
+						 if(result) return result;
+					}
+				}
+				return result;
+			}
+					
+			
+			private function onAdd(nodeXml:XMLList,parentWin:DeltaXWindow):void
+			{
+				
+			}											
+			
+			protected function tree_mouseOutHandler(event:MouseEvent):void
+			{				
+				if(stage) stage.focus = interGroup;
+			}
+			
+			protected function keyDownHanlder(event:KeyboardEvent):void
+			{
+				trace(event.keyCode);
+				var cur:DeltaXWindow = CGUIEditorApp.instance.curSelectWindow;				
+				if(!cur || PropertiesView.instance.curWindow!=cur)null;
+				var step:int = event.shiftKey?10:1;
+				switch(event.keyCode)
+				{
+					case Keyboard.UP:
+						PropertiesView.instance.curWindow.y -= step;
+						PropertiesView.instance.setLocalPos();
+						break;
+					case Keyboard.DOWN:
+						PropertiesView.instance.curWindow.y += step;
+						PropertiesView.instance.setLocalPos();
+						break;
+					case Keyboard.LEFT:
+						PropertiesView.instance.curWindow.x -= step;
+						PropertiesView.instance.setLocalPos();
+						break;
+					case Keyboard.RIGHT:
+						PropertiesView.instance.curWindow.x += step;
+						PropertiesView.instance.setLocalPos();
+						break;
+				}				
+			}
+			
+			
+			protected function clickForFocus(event:MouseEvent):void
+			{
+				if(stage){
+					stage.focus = interGroup;
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<mx:Tree x="0" y="47" width="164" height="350" id="uiTree" labelField="@label" showRoot="false" dragEnabled="true" dropEnabled="true" mouseUp="tree_mouseOutHandler(event)"/>
+	<s:Group x="168" y="47" width="900" height="100%" id="viewContainer" dragDrop="viewOnDragDrop(event)" dragEnter="viewOnDragEnter(event,'myFormat')">
+		<s:Rect width="100%" height="100%" alpha="0">
+			<s:fill>
+				<s:SolidColor color="#A1A1A1"/>
+			</s:fill>
+		</s:Rect>
+		<s:Group id="interGroup" x="0" y="0" width="890" height="100%" alpha="0">
+			<s:layout>
+				<s:HorizontalLayout/>
+			</s:layout>
+		</s:Group>
+	</s:Group>
+	<ns1:PropertiesView id="properView" x="1073" y="47" width="357" height="100%">
+	</ns1:PropertiesView>
+	<mx:Tree id="layoutTree" x="0" y="399" width="164" height="100%" labelField="@label" showRoot="false" dragEnabled="true" dropEnabled="true"
+			 keyUp="layoutTree_keyUpHandler(event)" dragComplete="layoutTree_dragCopleteHandler(event)" dragMoveEnabled="true"
+			 toolTip="删除(d)"
+			 ></mx:Tree>
+	<ns1:MenuBarView id="menuBar" x="6" y="3" width="100%">
+	</ns1:MenuBarView>
+	<mx:HRule x="0" y="44" width="100%" chromeColor="#000000" strokeColor="2"/>
+	<mx:HRule x="0" y="397" width="166" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="165" y="46" height="100%" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="68" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="135" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="200" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="267" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="333" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="419" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	<mx:VRule x="510" y="7" height="30" chromeColor="#000000" strokeColor="2"/>
+	
+</s:WindowedApplication>
